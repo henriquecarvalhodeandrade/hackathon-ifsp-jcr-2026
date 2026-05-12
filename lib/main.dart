@@ -2,8 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'screens/map_screen.dart';
 
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: const FirebaseOptions(
+      apiKey: "AIzaSyBhWVGh6ilnUwiQUIxYpyWTlq4NlVdeRbI",
+      authDomain: "hackathon-ifsp-jcr-2026.firebaseapp.com",
+      projectId: "hackathon-ifsp-jcr-2026",
+      storageBucket: "hackathon-ifsp-jcr-2026.firebasestorage.app",
+      messagingSenderId: "257325050721",
+      appId: "1:257325050721:web:75b95679d27424d089b320",
+      measurementId: "G-90QHMKC757",
+    ),
+  );
+  
   runApp(const ZeladoriaApp());
 }
 
