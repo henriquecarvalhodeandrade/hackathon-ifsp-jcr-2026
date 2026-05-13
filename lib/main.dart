@@ -9,13 +9,13 @@ void main() async {
 
   await Firebase.initializeApp(
     options: const FirebaseOptions(
-      apiKey: "AIzaSyBhWVGh6ilnUwiQUIxYpyWTlq4NlVdeRbI",
-      authDomain: "hackathon-ifsp-jcr-2026.firebaseapp.com",
-      projectId: "hackathon-ifsp-jcr-2026",
-      storageBucket: "hackathon-ifsp-jcr-2026.firebasestorage.app",
-      messagingSenderId: "257325050721",
-      appId: "1:257325050721:web:75b95679d27424d089b320",
-      measurementId: "G-90QHMKC757",
+      apiKey: "AIzaSyCwEkudE-yg8VPPBY1_0bPSNIDYFk8LVEw",
+      authDomain: "hackathon-zeladoria.firebaseapp.com",
+      projectId: "hackathon-zeladoria",
+      storageBucket: "hackathon-zeladoria.firebasestorage.app",
+      messagingSenderId: "695164154657",
+      appId: "1:695164154657:web:afbd486c9f501629304460",
+      measurementId: "G-MEWJ3TEP9F"
     ),
   );
 
