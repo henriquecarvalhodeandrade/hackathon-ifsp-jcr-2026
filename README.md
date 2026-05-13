@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🏙️ Zeladoria Digital
+# 🏙️ JacaMap
 
 **Plataforma colaborativa de zeladoria urbana para Jacareí — SP**
 
@@ -17,12 +17,12 @@
 
 ## O que é?
 
-O **Zeladoria Digital** é um aplicativo mobile e web que permite que qualquer cidadão de Jacareí **registre, acompanhe e vote** em problemas urbanos como buracos nas vias, falta de iluminação pública, acúmulo de lixo, enchentes e outros.
+O **JacaMap** é um aplicativo mobile e web que permite que qualquer cidadão de Jacareí **registre, acompanhe e vote** em problemas urbanos como buracos nas vias, falta de iluminação pública, acúmulo de lixo, enchentes e outros.
 
 O app funciona como um **mapa colaborativo em tempo real**: todos veem os problemas reportados pela comunidade, e qualquer usuário pode acompanhar o status de cada ocorrência conforme a prefeitura ou voluntários vão atualizando.
 
 ### Por que isso importa?
-> A zeladoria urbana muitas vezes falha não pela falta de ação, mas pela falta de visibilidade. Um buraco que todo mundo passa por cima mas ninguém reportou. O Zeladoria Digital resolve exatamente isso.
+> A zeladoria urbana muitas vezes falha não pela falta de ação, mas pela falta de visibilidade. Um buraco que todo mundo passa por cima mas ninguém reportou. O JacaMap resolve exatamente isso.
 
 ---
 

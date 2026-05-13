@@ -9,11 +9,10 @@ class Denuncia {
   final double longitude;
   final String status;
   final String gravidade;
-  final String? fotoUrl;
   final String? userId;
   final DateTime? timestamp;
 
-  Denuncia({
+  const Denuncia({
     required this.id,
     required this.categoria,
     required this.descricao,
@@ -21,7 +20,6 @@ class Denuncia {
     required this.longitude,
     required this.status,
     required this.gravidade,
-    this.fotoUrl,
     this.userId,
     this.timestamp,
   });
@@ -36,7 +34,6 @@ class Denuncia {
       longitude: (data['longitude'] as num?)?.toDouble() ?? 0.0,
       status: data['status'] as String? ?? 'Pendente',
       gravidade: data['gravidade'] as String? ?? 'Média',
-      fotoUrl: data['fotoUrl'] as String?,
       userId: data['userId'] as String?,
       timestamp: (data['timestamp'] as Timestamp?)?.toDate(),
     );
@@ -73,7 +70,6 @@ class FirestoreService {
     required double latitude,
     required double longitude,
     required String gravidade,
-    String? fotoUrl,
     String? userId,
   }) async {
     final docRef = await _db.collection(_collection).add({
@@ -83,7 +79,6 @@ class FirestoreService {
       'longitude': longitude,
       'status': 'Pendente',
       'gravidade': gravidade,
-      'fotoUrl': fotoUrl,
       'userId': userId,
       'timestamp': FieldValue.serverTimestamp(),
     });
@@ -99,9 +94,6 @@ class FirestoreService {
         .collection(_collection)
         .orderBy('timestamp', descending: true)
         .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => Denuncia.fromFirestore(doc)).toList(),
-        );
+        .map((snap) => snap.docs.map((d) => Denuncia.fromFirestore(d)).toList());
   }
 }

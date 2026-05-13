@@ -1,4 +1,4 @@
-# Guia de Configuração — Zeladoria Digital
+# Guia de Configuração — JacaMap
 
 ## 1. Firebase
 

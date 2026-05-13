@@ -1,4 +1,4 @@
-# 🏗️ Zeladoria Digital — Regras de Negócio
+# 🏗️ JacaMap — Regras de Negócio
 
 ## 1. Diagnóstico do Estado Atual
 

@@ -22,10 +22,6 @@ dependencies:
   firebase_core: ^2.32.0
   cloud_firestore: ^4.17.5
   firebase_auth: ^4.20.0
-  firebase_storage: ^11.7.7
-
-  # Upload de imagem
-  image_picker: ^1.1.2
 
   # UI extras
   cupertino_icons: ^1.0.6

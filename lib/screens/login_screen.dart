@@ -158,7 +158,7 @@ class _LoginScreenState extends State<LoginScreen>
                           Text(
                             _isLogin
                                 ? 'Entre para reportar ocorrências'
-                                : 'Junte-se à Zeladoria Digital',
+                                : 'Junte-se ao JacaMap',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.5),

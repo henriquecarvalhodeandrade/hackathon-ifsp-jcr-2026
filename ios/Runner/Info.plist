@@ -5,7 +5,7 @@
         <key>CFBundleDevelopmentRegion</key>
         <string>$(DEVELOPMENT_LANGUAGE)</string>
         <key>CFBundleDisplayName</key>
-        <string>Zeladoria Digital</string>
+        <string>JacaMap</string>
         <key>CFBundleExecutable</key>
         <string>$(EXECUTABLE_NAME)</string>
         <key>CFBundleIdentifier</key>
@@ -46,16 +46,16 @@
 
         <!-- Justificativas para permissão de localização (obrigatório no iOS) -->
         <key>NSLocationWhenInUseUsageDescription</key>
-        <string>O Zeladoria Digital precisa da sua localização para registrar denúncias no local correto no mapa.</string>
+        <string>O JacaMap precisa da sua localização para registrar denúncias no local correto no mapa.</string>
         <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-        <string>O Zeladoria Digital precisa da sua localização para registrar denúncias no local correto no mapa.</string>
+        <string>O JacaMap precisa da sua localização para registrar denúncias no local correto no mapa.</string>
 
         <!-- Permissões de câmera e galeria (image_picker) -->
         <key>NSCameraUsageDescription</key>
-        <string>O Zeladoria Digital usa a câmera para fotografar o problema relatado.</string>
+        <string>O JacaMap usa a câmera para fotografar o problema relatado.</string>
         <key>NSPhotoLibraryUsageDescription</key>
-        <string>O Zeladoria Digital acessa a galeria para anexar uma foto ao relato.</string>
+        <string>O JacaMap acessa a galeria para anexar uma foto ao relato.</string>
         <key>NSPhotoLibraryAddUsageDescription</key>
-        <string>O Zeladoria Digital salva fotos tiradas pelo app na sua galeria.</string>
+        <string>O JacaMap salva fotos tiradas pelo app na sua galeria.</string>
 </dict>
 </plist>
