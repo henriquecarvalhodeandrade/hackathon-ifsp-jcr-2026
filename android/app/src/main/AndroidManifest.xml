@@ -6,21 +6,17 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Permissões de câmera e galeria (image_picker) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+
     <application
         android:label="Zeladoria Digital"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
-
-        <!--
-          ╔══════════════════════════════════════════════════════════╗
-          ║  INSIRA SUA API KEY DO GOOGLE MAPS AQUI (Android)       ║
-          ║  Obtenha em: https://console.cloud.google.com/          ║
-          ║  Ative as APIs: Maps SDK for Android + Geocoding API    ║
-          ╚══════════════════════════════════════════════════════════╝
-        -->
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="SUA_GOOGLE_MAPS_API_KEY_AQUI" />
+        android:icon="@mipmap/ic_launcher"
+        android:requestLegacyExternalStorage="true">
 
         <activity
             android:name=".MainActivity"

@@ -9,13 +9,12 @@ void main() async {
 
   await Firebase.initializeApp(
     options: const FirebaseOptions(
-      apiKey: "AIzaSyCwEkudE-yg8VPPBY1_0bPSNIDYFk8LVEw",
+      apiKey: "AIzaSyBU7pLC8v7FIQfqgt6iVBru1aNH5V0XmWQ",
       authDomain: "hackathon-zeladoria.firebaseapp.com",
       projectId: "hackathon-zeladoria",
       storageBucket: "hackathon-zeladoria.firebasestorage.app",
       messagingSenderId: "695164154657",
-      appId: "1:695164154657:web:afbd486c9f501629304460",
-      measurementId: "G-MEWJ3TEP9F"
+      appId: "1:695164154657:android:e0035df9bcfd86e6304460",
     ),
   );
 
