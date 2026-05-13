@@ -1,4 +1,4 @@
-modules = ["web", "swift-5.8"]
+modules = ["nodejs-20", "swift-5.8", "web"]
 [agent]
 expertMode = true
 
@@ -9,3 +9,7 @@ packages = ["flutter329"]
 [[ports]]
 localPort = 8080
 externalPort = 80
+
+[[ports]]
+localPort = 9005
+externalPort = 3000
