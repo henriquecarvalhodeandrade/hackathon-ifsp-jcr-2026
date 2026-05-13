@@ -7,9 +7,29 @@ channel = "stable-25_05"
 packages = ["flutter329"]
 
 [[ports]]
-localPort = 8080
+localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 9005
-externalPort = 3000
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx serve build/web -l 5000 -s"
+waitForPort = 5000
