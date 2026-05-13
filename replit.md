@@ -8,51 +8,46 @@ App de zeladoria urbana desenvolvido para o Hackathon do IFSP Jacareí (Institut
 
 ## Stack Técnica
 - **Framework:** Flutter / Dart
-- **Mapa:** Google Maps Flutter (`google_maps_flutter`)
+- **Mapa:** OpenStreetMap via `flutter_map` + `latlong2` (100% gratuito, sem API key)
 - **Localização:** `geolocator`
 - **Backend:** Firebase Cloud Firestore (tempo real)
-- **Auth/Init:** `firebase_core`
+- **Auth:** Firebase Auth (anônimo + e-mail/senha) via `firebase_auth`
+- **Storage:** Firebase Storage para fotos via `firebase_storage`
+- **Imagens:** `image_picker` (câmera e galeria)
 
 ## Estrutura do Projeto
 ```
 lib/
-  main.dart                  # Entry point + inicialização Firebase
+  main.dart                       # Entry point + auth anônima automática
   screens/
-    map_screen.dart          # Tela principal com mapa em tela cheia
+    map_screen.dart               # Mapa OSM, marcadores, filtros, AppBar flutuante
+    login_screen.dart             # Tela de login/cadastro com branding
   widgets/
-    report_modal.dart        # Modal de denúncia (BottomSheet)
+    report_modal.dart             # Modal de nova denúncia (categoria, gravidade, foto)
+    report_detail_sheet.dart      # Sheet de detalhe + atualizar status
   services/
-    firestore_service.dart   # Toda a lógica Firebase/Firestore
+    firestore_service.dart        # Lógica Firestore (modelo Denuncia expandido)
+    auth_service.dart             # Firebase Auth (anônimo, e-mail/senha, logout)
 
-android/app/src/main/
-  AndroidManifest.xml        # Permissões + API Key do Google Maps (Android)
-
-ios/Runner/
-  AppDelegate.swift          # API Key do Google Maps (iOS)
-  Info.plist                 # Permissões de localização (iOS)
-
-web/
-  index.html                 # Script do Google Maps (Web)
-
-pubspec.yaml                 # Dependências do projeto
-CONFIGURACAO.md              # Guia completo de configuração Firebase + Maps
+pubspec.yaml                      # Dependências do projeto
 ```
+
+## Funcionalidades Implementadas
+1. **Mapa OpenStreetMap** — tiles gratuitos, tema dark invertido, marcadores por categoria/status
+2. **Autenticação** — login anônimo automático; login/cadastro por e-mail; logout
+3. **Denúncias com gravidade** — campo `gravidade` (Baixa/Média/Alta) com ícones visuais
+4. **Upload de foto** — câmera ou galeria, upload para Firebase Storage
+5. **Atualizar status** — usuários logados podem mudar status de qualquer denúncia
+6. **Filtros em tempo real** — barra de chips para Categoria, Gravidade e Status
+7. **UI polida** — dark theme, animações, badges coloridos, AppBar flutuante
 
 ## Configuração Necessária (antes de rodar)
 
-### 1. Firebase
-- Criar projeto em https://console.firebase.google.com
-- Baixar `google-services.json` → colocar em `android/app/`
-- Baixar `GoogleService-Info.plist` → colocar em `ios/Runner/`
-- Ativar Cloud Firestore no console
-
-### 2. Google Maps API Key
-Substituir `SUA_GOOGLE_MAPS_API_KEY_AQUI` em:
-- `android/app/src/main/AndroidManifest.xml`
-- `ios/Runner/AppDelegate.swift`
-- `web/index.html`
-
-Ver guia completo em `CONFIGURACAO.md`.
+### Firebase (único passo necessário)
+- Projeto já configurado: `hackathon-ifsp-jcr-2026`
+- Ativar **Firebase Auth** (método: e-mail/senha + anônimo) no console
+- Ativar **Firebase Storage** no console
+- Ativar **Cloud Firestore** no console
 
 ## Comandos
 ```bash

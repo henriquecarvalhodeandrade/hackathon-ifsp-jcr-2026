@@ -1,0 +1,57 @@
+You are a senior Flutter developer. Your task is to complete and improve a hackathon project. The project is a mobile/web app called "Zeladoria Digital" for citizens to report city infrastructure problems (potholes, fallen poles, etc.).
+
+The existing code is in the repo. It already has:
+- Firebase Firestore for storing reports (collection 'denuncias').
+- A map screen that shows markers (currently using Google Maps).
+- A modal to submit a report with category, description, and location.
+- Geolocation capture.
+
+**Your job is to add the following features:**
+
+1. **Replace Google Maps with OpenStreetMap (free):**
+   - Use the `flutter_map` package with OpenStreetMap tiles (https://tile.openstreetmap.org/{z}/{x}/{y}.png).
+   - Remove all Google Maps dependencies (google_maps_flutter, API keys).
+   - Convert all map-related code (MapScreen, ReportModal) to `flutter_map` (FlutterMap, TileLayer, MarkerLayer, MapController).
+
+2. **Add user authentication (Firebase Auth):**
+   - Anonymous sign-in on app launch (for non-logged-in users, view only).
+   - Email/password sign-up/login screen.
+   - Logged-in users can submit reports and update report status.
+   - Non-logged-in users can only view the map and reports (read-only).
+
+3. **Extend the report model to include:**
+   - Photo upload (captured from camera or gallery) to Firebase Storage, URL saved in Firestore.
+   - Severity level (e.g., "Baixa", "Média", "Alta") – add a field `gravidade`.
+   - Current status (already exists: "Pendente", "Em andamento", "Resolvido").
+
+4. **Allow nearby users to update report status:**
+   - Add an "Update Status" button on the report detail screen (visible only to logged-in users).
+   - When tapped, show options: "Pendente", "Em andamento", "Resolvido".
+   - Update the Firestore document.
+
+5. **Filter system for reports:**
+   - Add a filter bar above the map with dropdowns or chips for:
+     - Category (e.g., "Buraco na Via", "Iluminação Pública").
+     - Severity ("Baixa", "Média", "Alta").
+     - Status ("Pendente", "Em andamento", "Resolvido").
+   - Filter markers in real-time based on selection.
+
+6. **UI/UX polish (make it beautiful and presentable):**
+   - The app already has a dark theme (#1A1A1A background, #DEFF9A accent). Keep it and enhance:
+     - Smooth animations for modal, map interactions.
+     - A nice login screen with the app branding.
+     - Icons and visual feedback for severity levels.
+   - All text must be in Brazilian Portuguese.
+
+**Important constraints:**
+- Reuse existing code as much as possible (Firestore service, theme, etc.).
+- Use only free/open-source packages (flutter_map, firebase_auth, firebase_storage, image_picker, etc.).
+- The final app must run on web (preview) and mobile.
+
+**Steps for the AI:**
+1. First, examine the existing project structure (lib/main.dart, lib/screens/map_screen.dart, lib/services/firestore_service.dart, lib/widgets/report_modal.dart).
+2. Plan the changes needed.
+3. Implement the features incrementally, testing each step if possible.
+4. Provide the final complete code for all modified/new files.
+
+Respond with the full implementation plan and code.
