@@ -8,6 +8,9 @@ class Denuncia {
   final double latitude;
   final double longitude;
   final String status;
+  final String gravidade;
+  final String? fotoUrl;
+  final String? userId;
   final DateTime? timestamp;
 
   Denuncia({
@@ -17,10 +20,12 @@ class Denuncia {
     required this.latitude,
     required this.longitude,
     required this.status,
+    required this.gravidade,
+    this.fotoUrl,
+    this.userId,
     this.timestamp,
   });
 
-  /// Converte um DocumentSnapshot do Firestore em [Denuncia].
   factory Denuncia.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Denuncia(
@@ -30,6 +35,9 @@ class Denuncia {
       latitude: (data['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (data['longitude'] as num?)?.toDouble() ?? 0.0,
       status: data['status'] as String? ?? 'Pendente',
+      gravidade: data['gravidade'] as String? ?? 'Média',
+      fotoUrl: data['fotoUrl'] as String?,
+      userId: data['userId'] as String?,
       timestamp: (data['timestamp'] as Timestamp?)?.toDate(),
     );
   }
@@ -39,17 +47,34 @@ class Denuncia {
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // Nome da coleção no Firestore
   static const String _collection = 'denuncias';
 
-  /// Salva uma nova denúncia na coleção [denuncias].
-  ///
-  /// Retorna o ID do documento criado.
+  static const List<String> categorias = [
+    'Buraco na Via',
+    'Iluminação Pública',
+    'Acúmulo de Lixo',
+    'Enchente/Drenagem',
+    'Calçada Danificada',
+    'Sinalização',
+    'Outros',
+  ];
+
+  static const List<String> gravidades = ['Baixa', 'Média', 'Alta'];
+
+  static const List<String> statusList = [
+    'Pendente',
+    'Em andamento',
+    'Resolvido',
+  ];
+
   Future<String> salvarDenuncia({
     required String categoria,
     required String descricao,
     required double latitude,
     required double longitude,
+    required String gravidade,
+    String? fotoUrl,
+    String? userId,
   }) async {
     final docRef = await _db.collection(_collection).add({
       'categoria': categoria,
@@ -57,20 +82,26 @@ class FirestoreService {
       'latitude': latitude,
       'longitude': longitude,
       'status': 'Pendente',
+      'gravidade': gravidade,
+      'fotoUrl': fotoUrl,
+      'userId': userId,
       'timestamp': FieldValue.serverTimestamp(),
     });
     return docRef.id;
   }
 
-  /// Retorna um stream em tempo real de todas as denúncias.
-  ///
-  /// O app escuta mudanças automaticamente via [snapshots()].
+  Future<void> atualizarStatus(String id, String novoStatus) async {
+    await _db.collection(_collection).doc(id).update({'status': novoStatus});
+  }
+
   Stream<List<Denuncia>> streamDenuncias() {
     return _db
         .collection(_collection)
         .orderBy('timestamp', descending: true)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Denuncia.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Denuncia.fromFirestore(doc)).toList(),
+        );
   }
 }

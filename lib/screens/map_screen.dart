@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/firestore_service.dart';
+import '../services/auth_service.dart';
 import '../widgets/report_modal.dart';
+import '../widgets/report_detail_sheet.dart';
+import 'login_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -13,23 +17,22 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  // Controller do mapa
-  final Completer<GoogleMapController> _mapController = Completer();
-
-  // Posição inicial padrão (Jacareí, SP) — substituída pela localização real
   static const LatLng _defaultPosition = LatLng(-23.3055, -45.9659);
+
+  final MapController _mapController = MapController();
+  final FirestoreService _firestoreService = FirestoreService();
+  final AuthService _authService = AuthService();
 
   LatLng _currentPosition = _defaultPosition;
   bool _locationLoaded = false;
 
-  // Conjunto de marcadores renderizados no mapa
-  final Set<Marker> _markers = {};
-
-  // Serviço Firestore
-  final FirestoreService _firestoreService = FirestoreService();
-
-  // Subscription do stream de denúncias
+  List<Denuncia> _todasDenuncias = [];
   StreamSubscription<List<Denuncia>>? _denunciasSubscription;
+
+  // Filtros
+  String? _filtroCategoria;
+  String? _filtroGravidade;
+  String? _filtroStatus;
 
   @override
   void initState() {
@@ -64,7 +67,7 @@ class _MapScreenState extends State<MapScreen> {
       }
 
       if (permission == LocationPermission.deniedForever) {
-        _showSnack('Permissão de localização negada permanentemente. Ative nas configurações.');
+        _showSnack('Ative a localização nas configurações do dispositivo.');
         return;
       }
 
@@ -73,18 +76,13 @@ class _MapScreenState extends State<MapScreen> {
       );
 
       final latLng = LatLng(position.latitude, position.longitude);
-      setState(() {
-        _currentPosition = latLng;
-        _locationLoaded = true;
-      });
-
-      // Centraliza o mapa na posição atual
-      final controller = await _mapController.future;
-      controller.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: latLng, zoom: 15),
-        ),
-      );
+      if (mounted) {
+        setState(() {
+          _currentPosition = latLng;
+          _locationLoaded = true;
+        });
+        _mapController.move(latLng, 15);
+      }
     } catch (e) {
       _showSnack('Erro ao obter localização: $e');
     }
@@ -95,62 +93,98 @@ class _MapScreenState extends State<MapScreen> {
   void _listenToDenuncias() {
     _denunciasSubscription =
         _firestoreService.streamDenuncias().listen((denuncias) {
-      _updateMarkers(denuncias);
+      if (mounted) setState(() => _todasDenuncias = denuncias);
     }, onError: (e) {
       _showSnack('Erro ao carregar denúncias: $e');
     });
   }
 
-  void _updateMarkers(List<Denuncia> denuncias) {
-    final Set<Marker> novosMarkers = {};
-
-    for (final d in denuncias) {
-      final hue = _hueParaStatus(d.status);
-      novosMarkers.add(
-        Marker(
-          markerId: MarkerId(d.id),
-          position: LatLng(d.latitude, d.longitude),
-          icon: BitmapDescriptor.defaultMarkerWithHue(hue),
-          infoWindow: InfoWindow(
-            title: d.categoria,
-            snippet: '${d.status} • ${d.descricao}',
-          ),
-        ),
-      );
-    }
-
-    setState(() {
-      _markers
-        ..clear()
-        ..addAll(novosMarkers);
-    });
+  List<Denuncia> get _denunciasFiltradas {
+    return _todasDenuncias.where((d) {
+      if (_filtroCategoria != null && d.categoria != _filtroCategoria) {
+        return false;
+      }
+      if (_filtroGravidade != null && d.gravidade != _filtroGravidade) {
+        return false;
+      }
+      if (_filtroStatus != null && d.status != _filtroStatus) return false;
+      return true;
+    }).toList();
   }
 
-  /// Mapeia o status da denúncia para uma cor de marcador.
-  double _hueParaStatus(String status) {
+  // ── Cores por status e gravidade ─────────────────────────────────────────
+
+  Color _corParaStatus(String status) {
     switch (status.toLowerCase()) {
       case 'resolvido':
-        return BitmapDescriptor.hueGreen;
+        return const Color(0xFF4CAF50);
       case 'em andamento':
-        return BitmapDescriptor.hueYellow;
+        return const Color(0xFFFFC107);
       case 'pendente':
       default:
-        return BitmapDescriptor.hueRed;
+        return const Color(0xFFF44336);
     }
   }
 
-  // ── Modal de denúncia ────────────────────────────────────────────────────
+  IconData _iconeParaCategoria(String categoria) {
+    switch (categoria) {
+      case 'Buraco na Via':
+        return Icons.warning_rounded;
+      case 'Iluminação Pública':
+        return Icons.lightbulb_outline;
+      case 'Acúmulo de Lixo':
+        return Icons.delete_outline;
+      case 'Enchente/Drenagem':
+        return Icons.water_damage_outlined;
+      case 'Calçada Danificada':
+        return Icons.construction_outlined;
+      case 'Sinalização':
+        return Icons.traffic_outlined;
+      default:
+        return Icons.report_problem_outlined;
+    }
+  }
+
+  // ── Navegação ────────────────────────────────────────────────────────────
 
   void _abrirModalDenuncia() {
+    if (!_authService.isLoggedIn) {
+      _showSnack('Faça login para registrar uma denúncia.');
+      _irParaLogin();
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => ReportModal(
-        currentPosition: _currentPosition,
-        firestoreService: _firestoreService,
-      ),
+      builder:
+          (_) => ReportModal(
+            currentPosition: _currentPosition,
+            firestoreService: _firestoreService,
+            userId: _authService.currentUser?.uid,
+          ),
     );
+  }
+
+  void _abrirDetalhe(Denuncia d) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (_) => ReportDetailSheet(
+            denuncia: d,
+            firestoreService: _firestoreService,
+            isLoggedIn: _authService.isLoggedIn,
+          ),
+    );
+  }
+
+  Future<void> _irParaLogin() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
+    setState(() {});
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -166,41 +200,216 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _limparFiltros() {
+    setState(() {
+      _filtroCategoria = null;
+      _filtroGravidade = null;
+      _filtroStatus = null;
+    });
+  }
+
+  bool get _temFiltroAtivo =>
+      _filtroCategoria != null ||
+      _filtroGravidade != null ||
+      _filtroStatus != null;
+
   // ── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
+    final denuncias = _denunciasFiltradas;
+    final isLoggedIn = _authService.isLoggedIn;
+
     return Scaffold(
       body: Stack(
         children: [
-          // Mapa em tela cheia
-          GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: _defaultPosition,
-              zoom: 14,
+          // ── Mapa OpenStreetMap ────────────────────────────────────────────
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _defaultPosition,
+              initialZoom: 14,
+              backgroundColor: const Color(0xFF1A1A1A),
             ),
-            myLocationEnabled: _locationLoaded,
-            myLocationButtonEnabled: _locationLoaded,
-            markers: _markers,
-            mapType: MapType.normal,
-            onMapCreated: (controller) {
-              _mapController.complete(controller);
-              // Aplica estilo dark ao mapa
-              controller.setMapStyle(_darkMapStyle);
-            },
+            children: [
+              TileLayer(
+                urlTemplate:
+                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.ifsp.zeladoria_digital',
+                tileBuilder: _darkTileBuilder,
+              ),
+              MarkerLayer(
+                markers: [
+                  // Marcador de posição atual
+                  if (_locationLoaded)
+                    Marker(
+                      point: _currentPosition,
+                      width: 24,
+                      height: 24,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDEFF9A),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black38,
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // Marcadores de denúncias
+                  for (final d in denuncias)
+                    Marker(
+                      point: LatLng(d.latitude, d.longitude),
+                      width: 40,
+                      height: 40,
+                      child: GestureDetector(
+                        onTap: () => _abrirDetalhe(d),
+                        child: _buildMarker(d),
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ),
 
-          // Indicador de carregamento de localização
+          // ── AppBar flutuante ──────────────────────────────────────────────
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xE6242424),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black38,
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.location_city_rounded,
+                              color: Color(0xFFDEFF9A),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Zeladoria Digital',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (_todasDenuncias.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2E2E2E),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '${denuncias.length}/${_todasDenuncias.length}',
+                                  style: const TextStyle(
+                                    color: Color(0xFFDEFF9A),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Botão de autenticação
+                    GestureDetector(
+                      onTap: isLoggedIn
+                          ? () async {
+                              await _authService.signOut();
+                              setState(() {});
+                              _showSnack('Sessão encerrada.');
+                            }
+                          : _irParaLogin,
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: const Color(0xE6242424),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black38,
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          isLoggedIn
+                              ? Icons.logout_rounded
+                              : Icons.login_rounded,
+                          color: isLoggedIn
+                              ? const Color(0xFFDEFF9A)
+                              : Colors.white54,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // ── Barra de filtros ──────────────────────────────────────────────
+          Positioned(
+            top: 72,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: _buildFilterBar(),
+            ),
+          ),
+
+          // ── Indicador de carregamento de localização ──────────────────────
           if (!_locationLoaded)
             Positioned(
-              top: 56,
+              top: 130,
               left: 0,
               right: 0,
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF242424),
+                    color: const Color(0xE6242424),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Row(
@@ -225,31 +434,155 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
 
-          // Legenda de cores
+          // ── Legenda + botão de minha localização ─────────────────────────
           Positioned(
             bottom: 110,
             left: 16,
-            child: _buildLegend(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildLegend(),
+                const SizedBox(height: 8),
+                if (_locationLoaded)
+                  GestureDetector(
+                    onTap: () => _mapController.move(_currentPosition, 16),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xE6242424),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black38,
+                            blurRadius: 6,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.my_location_rounded,
+                        color: Color(0xFFDEFF9A),
+                        size: 20,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
 
-      // Botão de reportar
+      // ── FAB de reportar ───────────────────────────────────────────────────
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _abrirModalDenuncia,
-        icon: const Icon(Icons.add, color: Color(0xFF1A1A1A)),
-        label: const Text(
+        icon: Icon(
+          Icons.add,
+          color: isLoggedIn ? const Color(0xFF1A1A1A) : Colors.black54,
+        ),
+        label: Text(
           'REPORTAR',
           style: TextStyle(
-            color: Color(0xFF1A1A1A),
+            color: isLoggedIn ? const Color(0xFF1A1A1A) : Colors.black54,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.2,
           ),
         ),
-        backgroundColor: const Color(0xFFDEFF9A),
+        backgroundColor: isLoggedIn
+            ? const Color(0xFFDEFF9A)
+            : const Color(0xFF9EAF6A),
         elevation: 4,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  // ── Widgets auxiliares ───────────────────────────────────────────────────
+
+  Widget _buildMarker(Denuncia d) {
+    final color = _corParaStatus(d.status);
+    final icone = _iconeParaCategoria(d.categoria);
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: const [
+          BoxShadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Icon(icone, color: Colors.white, size: 20),
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Row(
+        children: [
+          // Filtro categoria
+          _FilterChip(
+            label: _filtroCategoria ?? 'Categoria',
+            isActive: _filtroCategoria != null,
+            options: FirestoreService.categorias,
+            selected: _filtroCategoria,
+            onSelected: (v) => setState(() => _filtroCategoria = v),
+            onClear: () => setState(() => _filtroCategoria = null),
+          ),
+          const SizedBox(width: 8),
+          // Filtro gravidade
+          _FilterChip(
+            label: _filtroGravidade ?? 'Gravidade',
+            isActive: _filtroGravidade != null,
+            options: FirestoreService.gravidades,
+            selected: _filtroGravidade,
+            onSelected: (v) => setState(() => _filtroGravidade = v),
+            onClear: () => setState(() => _filtroGravidade = null),
+          ),
+          const SizedBox(width: 8),
+          // Filtro status
+          _FilterChip(
+            label: _filtroStatus ?? 'Status',
+            isActive: _filtroStatus != null,
+            options: FirestoreService.statusList,
+            selected: _filtroStatus,
+            onSelected: (v) => setState(() => _filtroStatus = v),
+            onClear: () => setState(() => _filtroStatus = null),
+          ),
+          // Botão limpar todos os filtros
+          if (_temFiltroAtivo) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _limparFiltros,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDEFF9A).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFFDEFF9A).withOpacity(0.5),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.clear_all, color: Color(0xFFDEFF9A), size: 16),
+                    SizedBox(width: 4),
+                    Text(
+                      'Limpar',
+                      style: TextStyle(
+                        color: Color(0xFFDEFF9A),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -263,16 +596,36 @@ class _MapScreenState extends State<MapScreen> {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _LegendItem(color: Colors.red, label: 'Pendente'),
+          _LegendItem(color: Color(0xFFF44336), label: 'Pendente'),
           SizedBox(height: 4),
-          _LegendItem(color: Colors.amber, label: 'Em andamento'),
+          _LegendItem(color: Color(0xFFFFC107), label: 'Em andamento'),
           SizedBox(height: 4),
-          _LegendItem(color: Colors.green, label: 'Resolvido'),
+          _LegendItem(color: Color(0xFF4CAF50), label: 'Resolvido'),
         ],
       ),
     );
   }
 }
+
+// ── Dark tile builder (aplica tint escuro sobre o mapa OSM) ──────────────────
+
+Widget _darkTileBuilder(
+  BuildContext context,
+  Widget tileWidget,
+  TileImage tile,
+) {
+  return ColorFiltered(
+    colorFilter: const ColorFilter.matrix([
+      -0.2126, -0.7152, -0.0722, 0, 255,
+      -0.2126, -0.7152, -0.0722, 0, 255,
+      -0.2126, -0.7152, -0.0722, 0, 255,
+      0,        0,        0,       1, 0,
+    ]),
+    child: tileWidget,
+  );
+}
+
+// ── Legenda ───────────────────────────────────────────────────────────────────
 
 class _LegendItem extends StatelessWidget {
   final Color color;
@@ -291,35 +644,111 @@ class _LegendItem extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 11),
+        ),
       ],
     );
   }
 }
 
-// ── Estilo Dark para o Google Maps ─────────────────────────────────────────
-const String _darkMapStyle = '''
-[
-  {"elementType":"geometry","stylers":[{"color":"#212121"}]},
-  {"elementType":"labels.icon","stylers":[{"visibility":"off"}]},
-  {"elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},
-  {"elementType":"labels.text.stroke","stylers":[{"color":"#212121"}]},
-  {"featureType":"administrative","elementType":"geometry","stylers":[{"color":"#757575"}]},
-  {"featureType":"administrative.country","elementType":"labels.text.fill","stylers":[{"color":"#9e9e9e"}]},
-  {"featureType":"administrative.land_parcel","stylers":[{"visibility":"off"}]},
-  {"featureType":"administrative.locality","elementType":"labels.text.fill","stylers":[{"color":"#bdbdbd"}]},
-  {"featureType":"poi","elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},
-  {"featureType":"poi.park","elementType":"geometry","stylers":[{"color":"#181818"}]},
-  {"featureType":"poi.park","elementType":"labels.text.fill","stylers":[{"color":"#616161"}]},
-  {"featureType":"poi.park","elementType":"labels.text.stroke","stylers":[{"color":"#1b1b1b"}]},
-  {"featureType":"road","elementType":"geometry.fill","stylers":[{"color":"#2c2c2c"}]},
-  {"featureType":"road","elementType":"labels.text.fill","stylers":[{"color":"#8a8a8a"}]},
-  {"featureType":"road.arterial","elementType":"geometry","stylers":[{"color":"#373737"}]},
-  {"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#3c3c3c"}]},
-  {"featureType":"road.highway.controlled_access","elementType":"geometry","stylers":[{"color":"#4e4e4e"}]},
-  {"featureType":"road.local","elementType":"labels.text.fill","stylers":[{"color":"#616161"}]},
-  {"featureType":"transit","elementType":"labels.text.fill","stylers":[{"color":"#757575"}]},
-  {"featureType":"water","elementType":"geometry","stylers":[{"color":"#000000"}]},
-  {"featureType":"water","elementType":"labels.text.fill","stylers":[{"color":"#3d3d3d"}]}
-]
-''';
+// ── Chip de filtro ────────────────────────────────────────────────────────────
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final List<String> options;
+  final String? selected;
+  final ValueChanged<String?> onSelected;
+  final VoidCallback onClear;
+
+  const _FilterChip({
+    required this.label,
+    required this.isActive,
+    required this.options,
+    required this.selected,
+    required this.onSelected,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        final result = await showMenu<String>(
+          context: context,
+          position: RelativeRect.fromLTRB(
+            MediaQuery.of(context).size.width / 2,
+            130,
+            0,
+            0,
+          ),
+          color: const Color(0xFF2E2E2E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          items: options
+              .map(
+                (o) => PopupMenuItem<String>(
+                  value: o,
+                  child: Text(
+                    o,
+                    style: TextStyle(
+                      color: selected == o
+                          ? const Color(0xFFDEFF9A)
+                          : Colors.white,
+                      fontWeight: selected == o
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+        );
+        if (result != null) onSelected(result);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive
+              ? const Color(0xFFDEFF9A).withOpacity(0.15)
+              : const Color(0xE6242424),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive
+                ? const Color(0xFFDEFF9A)
+                : Colors.white.withOpacity(0.15),
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black38,
+              blurRadius: 4,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: isActive ? const Color(0xFFDEFF9A) : Colors.white70,
+                fontSize: 12,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              isActive ? Icons.arrow_drop_down : Icons.arrow_drop_down,
+              color: isActive ? const Color(0xFFDEFF9A) : Colors.white38,
+              size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

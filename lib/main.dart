@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/map_screen.dart';
-
+import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,7 +18,7 @@ void main() async {
       measurementId: "G-90QHMKC757",
     ),
   );
-  
+
   runApp(const ZeladoriaApp());
 }
 
@@ -32,10 +33,10 @@ class ZeladoriaApp extends StatelessWidget {
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF1A1A1A),
-        colorScheme: ColorScheme.dark(
-          primary: const Color(0xFFDEFF9A),
-          secondary: const Color(0xFFDEFF9A),
-          surface: const Color(0xFF242424),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFFDEFF9A),
+          secondary: Color(0xFFDEFF9A),
+          surface: Color(0xFF242424),
         ),
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
           backgroundColor: Color(0xFFDEFF9A),
@@ -60,79 +61,63 @@ class ZeladoriaApp extends StatelessWidget {
           hintStyle: const TextStyle(color: Color(0xFF616161)),
         ),
       ),
-      home: const FirebaseInitWrapper(),
+      home: const AppRoot(),
     );
   }
 }
 
-/// Wrapper que inicializa o Firebase antes de exibir o mapa.
-class FirebaseInitWrapper extends StatefulWidget {
-  const FirebaseInitWrapper({super.key});
+class AppRoot extends StatefulWidget {
+  const AppRoot({super.key});
 
   @override
-  State<FirebaseInitWrapper> createState() => _FirebaseInitWrapperState();
+  State<AppRoot> createState() => _AppRootState();
 }
 
-class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
-  late Future<FirebaseApp> _initFuture;
+class _AppRootState extends State<AppRoot> {
+  final AuthService _authService = AuthService();
+  bool _ready = false;
 
   @override
   void initState() {
     super.initState();
-    _initFuture = Firebase.initializeApp();
+    _init();
+  }
+
+  Future<void> _init() async {
+    await _authService.signInAnonymously();
+    if (mounted) setState(() => _ready = true);
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<FirebaseApp>(
-      future: _initFuture,
-      builder: (context, snapshot) {
-        // Carregando
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            backgroundColor: Color(0xFF1A1A1A),
-            body: Center(
-              child: CircularProgressIndicator(color: Color(0xFFDEFF9A)),
-            ),
-          );
-        }
-
-        // Erro ao inicializar Firebase
-        if (snapshot.hasError) {
-          return Scaffold(
-            backgroundColor: const Color(0xFF1A1A1A),
-            body: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.cloud_off, color: Color(0xFFDEFF9A), size: 64),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Não foi possível conectar ao Firebase.',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Verifique o arquivo google-services.json / GoogleService-Info.plist '
-                      'e as configurações do Firebase.\n\nErro: ${snapshot.error}',
-                      style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 13),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+    if (!_ready) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF1A1A1A),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.location_city_rounded, color: Color(0xFFDEFF9A), size: 56),
+              SizedBox(height: 20),
+              CircularProgressIndicator(color: Color(0xFFDEFF9A)),
+              SizedBox(height: 16),
+              Text(
+                'Zeladoria Digital',
+                style: TextStyle(
+                  color: Color(0xFFDEFF9A),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-          );
-        }
+            ],
+          ),
+        ),
+      );
+    }
 
-        // Firebase OK — exibe o mapa
+    return StreamBuilder<User?>(
+      stream: _authService.authStateChanges,
+      builder: (context, snapshot) {
         return const MapScreen();
       },
     );
