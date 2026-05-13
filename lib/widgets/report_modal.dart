@@ -188,6 +188,8 @@ class _ReportModalState extends State<ReportModal> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    // final lat = widget.currentPosition.latitude.toStringAsFixed(5);
+    // final lng = widget.currentPosition.longitude.toStringAsFixed(5);
 
     return Container(
       decoration: const BoxDecoration(
@@ -335,6 +337,7 @@ class _ReportModalState extends State<ReportModal> {
                     color: _fotoSelecionada != null
                         ? const Color(0xFFDEFF9A).withOpacity(0.5)
                         : Colors.white.withOpacity(0.1),
+                    style: BorderStyle.solid,
                   ),
                 ),
                 clipBehavior: Clip.hardEdge,

@@ -3,13 +3,19 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/map_screen.dart';
 import 'services/auth_service.dart';
-import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+    options: const FirebaseOptions(
+      apiKey: "AIzaSyBU7pLC8v7FIQfqgt6iVBru1aNH5V0XmWQ",
+      authDomain: "hackathon-zeladoria.firebaseapp.com",
+      projectId: "hackathon-zeladoria",
+      storageBucket: "hackathon-zeladoria.firebasestorage.app",
+      messagingSenderId: "695164154657",
+      appId: "1:695164154657:android:e0035df9bcfd86e6304460",
+    ),
   );
 
   runApp(const ZeladoriaApp());
@@ -77,14 +83,7 @@ class _AppRootState extends State<AppRoot> {
   }
 
   Future<void> _init() async {
-    try {
-      await _authService.signInAnonymously().timeout(
-        const Duration(seconds: 5),
-        onTimeout: () {},
-      );
-    } catch (_) {
-      // Auth anônima pode não estar ativa; continua sem login
-    }
+    await _authService.signInAnonymously();
     if (mounted) setState(() => _ready = true);
   }
 

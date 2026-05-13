@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -24,6 +25,7 @@ class _MapScreenState extends State<MapScreen> {
   final AuthService _authService = AuthService();
 
   LatLng _currentPosition = _defaultPosition;
+  LatLng _currentMapCenter = _defaultPosition;
   bool _locationLoaded = false;
 
   List<Denuncia> _todasDenuncias = [];
@@ -33,6 +35,10 @@ class _MapScreenState extends State<MapScreen> {
   String? _filtroCategoria;
   String? _filtroGravidade;
   String? _filtroStatus;
+
+  // Busca
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearching = false;
 
   @override
   void initState() {
@@ -44,6 +50,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     _denunciasSubscription?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -79,12 +86,31 @@ class _MapScreenState extends State<MapScreen> {
       if (mounted) {
         setState(() {
           _currentPosition = latLng;
+          _currentMapCenter = latLng;
           _locationLoaded = true;
         });
         _mapController.move(latLng, 15);
       }
     } catch (e) {
       _showSnack('Erro ao obter localização: $e');
+    }
+  }
+
+  // ── Busca de endereço ──────────────────────────────────────────
+
+  Future<void> _buscarEndereco(String endereco) async {
+    if (endereco.trim().isEmpty) return;
+
+    setState(() => _isSearching = true);
+    FocusScope.of(context).unfocus();
+
+    try {
+      // Placeholder para busca de endereços
+      _showSnack('Adicione o pacote "geocoding" para busca real de endereços.');
+    } catch (e) {
+      _showSnack('Endereço não encontrado: $e');
+    } finally {
+      if (mounted) setState(() => _isSearching = false);
     }
   }
 
@@ -157,11 +183,12 @@ class _MapScreenState extends State<MapScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => ReportModal(
-        currentPosition: _currentPosition,
-        firestoreService: _firestoreService,
-        userId: _authService.currentUser?.uid,
-      ),
+      builder:
+          (_) => ReportModal(
+            currentPosition: _currentMapCenter, // Usa a posição da MIRA
+            firestoreService: _firestoreService,
+            userId: _authService.currentUser?.uid,
+          ),
     );
   }
 
@@ -170,18 +197,36 @@ class _MapScreenState extends State<MapScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => ReportDetailSheet(
-        denuncia: d,
-        firestoreService: _firestoreService,
-        isLoggedIn: _authService.isLoggedIn,
-      ),
+      builder:
+          (_) => ReportDetailSheet(
+            denuncia: d,
+            firestoreService: _firestoreService,
+            isLoggedIn: _authService.isLoggedIn,
+          ),
     );
   }
 
   Future<void> _irParaLogin() async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Login',
+      barrierColor: Colors.black.withOpacity(0.5), // Escurece o mapa
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) => const LoginScreen(),
+      transitionBuilder: (context, anim1, anim2, child) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: 5 * anim1.value,
+            sigmaY: 5 * anim1.value,
+          ),
+          child: FadeTransition(
+            opacity: anim1,
+            child: child,
+          ),
+        );
+      },
+    );
     setState(() {});
   }
 
@@ -228,17 +273,21 @@ class _MapScreenState extends State<MapScreen> {
               initialCenter: _defaultPosition,
               initialZoom: 14,
               backgroundColor: const Color(0xFF1A1A1A),
+              onPositionChanged: (position, hasGesture) {
+                if (position.center != null) {
+                  _currentMapCenter = position.center!;
+                }
+              },
             ),
             children: [
               TileLayer(
-                urlTemplate:
-                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.ifsp.zeladoria_digital',
                 tileBuilder: _darkTileBuilder,
               ),
               MarkerLayer(
                 markers: [
-                  // Marcador de posição atual
+                  // Marcador de posição atual (GPS)
                   if (_locationLoaded)
                     Marker(
                       point: _currentPosition,
@@ -246,16 +295,9 @@ class _MapScreenState extends State<MapScreen> {
                       height: 24,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: const Color(0xFFDEFF9A),
+                          color: const Color(0xFFDEFF9A).withOpacity(0.5),
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black38,
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
                         ),
                       ),
                     ),
@@ -276,7 +318,18 @@ class _MapScreenState extends State<MapScreen> {
             ],
           ),
 
-          // ── AppBar flutuante ──────────────────────────────────────────────
+          // ── Mira central (pin fixo no centro) ──────────────────────────
+          const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.location_pin, color: Color(0xFFDEFF9A), size: 40),
+                SizedBox(height: 40), // Ajuste para a ponta do pin ficar no centro
+              ],
+            ),
+          ),
+
+          // ── Header + Busca ────────────────────────────────────────────────
           Positioned(
             top: 0,
             left: 0,
@@ -284,100 +337,17 @@ class _MapScreenState extends State<MapScreen> {
             child: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                child: Row(
+                child: Column(
                   children: [
-                    Expanded(
-                      child: Container(
-                        height: 48,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xE6242424),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black38,
-                              blurRadius: 8,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.location_city_rounded,
-                              color: Color(0xFFDEFF9A),
-                              size: 22,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Zeladoria Digital',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (_todasDenuncias.isNotEmpty)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF2E2E2E),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  '${denuncias.length}/${_todasDenuncias.length}',
-                                  style: const TextStyle(
-                                    color: Color(0xFFDEFF9A),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
+                    Row(
+                      children: [
+                        Expanded(child: _buildAppTitleBar(denuncias.length)),
+                        const SizedBox(width: 8),
+                        _buildAuthButton(isLoggedIn),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    // Botão de autenticação
-                    GestureDetector(
-                      onTap: isLoggedIn
-                          ? () async {
-                              await _authService.signOut();
-                              setState(() {});
-                              _showSnack('Sessão encerrada.');
-                            }
-                          : _irParaLogin,
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: const Color(0xE6242424),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black38,
-                              blurRadius: 8,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          isLoggedIn
-                              ? Icons.logout_rounded
-                              : Icons.login_rounded,
-                          color: isLoggedIn
-                              ? const Color(0xFFDEFF9A)
-                              : Colors.white54,
-                          size: 22,
-                        ),
-                      ),
-                    ),
+                    const SizedBox(height: 8),
+                    _buildSearchBar(),
                   ],
                 ),
               ),
@@ -386,7 +356,7 @@ class _MapScreenState extends State<MapScreen> {
 
           // ── Barra de filtros ──────────────────────────────────────────────
           Positioned(
-            top: 72,
+            top: 140, // Ajustado para ficar abaixo da busca
             left: 0,
             right: 0,
             child: SafeArea(
@@ -397,39 +367,10 @@ class _MapScreenState extends State<MapScreen> {
           // ── Indicador de carregamento de localização ──────────────────────
           if (!_locationLoaded)
             Positioned(
-              top: 130,
+              top: 200,
               left: 0,
               right: 0,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xE6242424),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Color(0xFFDEFF9A),
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Obtendo localização…',
-                        style: TextStyle(color: Colors.white70, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              child: _buildLocationLoadingIndicator(),
             ),
 
           // ── Legenda + botão de minha localização ─────────────────────────
@@ -441,29 +382,7 @@ class _MapScreenState extends State<MapScreen> {
               children: [
                 _buildLegend(),
                 const SizedBox(height: 8),
-                if (_locationLoaded)
-                  GestureDetector(
-                    onTap: () => _mapController.move(_currentPosition, 16),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xE6242424),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black38,
-                            blurRadius: 6,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.my_location_rounded,
-                        color: Color(0xFFDEFF9A),
-                        size: 20,
-                      ),
-                    ),
-                  ),
+                if (_locationLoaded) _buildMyLocationButton(),
               ],
             ),
           ),
@@ -494,7 +413,113 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  // ── Widgets auxiliares ───────────────────────────────────────────────────
+  // ── Widgets da UI ────────────────────────────────────────────────────────
+
+  Widget _buildAppTitleBar(int count) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xE6242424),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [
+          BoxShadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.location_city_rounded, color: Color(0xFFDEFF9A), size: 22),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'Zeladoria Digital',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (_todasDenuncias.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2E2E2E),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count/${_todasDenuncias.length}',
+                style: const TextStyle(color: Color(0xFFDEFF9A), fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAuthButton(bool isLoggedIn) {
+    return GestureDetector(
+      onTap: isLoggedIn
+          ? () async {
+              await _authService.signOut();
+              setState(() {});
+              _showSnack('Sessão encerrada.');
+            }
+          : _irParaLogin,
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: const Color(0xE6242424),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: const [
+            BoxShadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 2)),
+          ],
+        ),
+        child: Icon(
+          isLoggedIn ? Icons.logout_rounded : Icons.login_rounded,
+          color: isLoggedIn ? const Color(0xFFDEFF9A) : Colors.white54,
+          size: 22,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: const Color(0xE6242424),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [
+          BoxShadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 2)),
+        ],
+      ),
+      child: TextField(
+        controller: _searchController,
+        style: const TextStyle(color: Colors.white, fontSize: 14),
+        onSubmitted: _buscarEndereco,
+        decoration: InputDecoration(
+          hintText: 'Pesquisar endereço...',
+          hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+          prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+          suffixIcon: _isSearching
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFDEFF9A)),
+                )
+              : _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.white38, size: 18),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {});
+                      },
+                    )
+                  : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+      ),
+    );
+  }
 
   Widget _buildMarker(Denuncia d) {
     final color = _corParaStatus(d.status);
@@ -553,29 +578,58 @@ class _MapScreenState extends State<MapScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFFDEFF9A).withOpacity(0.15),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: const Color(0xFFDEFF9A).withOpacity(0.5),
-                  ),
+                  border: Border.all(color: const Color(0xFFDEFF9A).withOpacity(0.5)),
                 ),
                 child: const Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.clear_all, color: Color(0xFFDEFF9A), size: 16),
                     SizedBox(width: 4),
-                    Text(
-                      'Limpar',
-                      style: TextStyle(
-                        color: Color(0xFFDEFF9A),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    Text('Limpar', style: TextStyle(color: Color(0xFFDEFF9A), fontSize: 12, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildLocationLoadingIndicator() {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xE6242424),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFDEFF9A))),
+            SizedBox(width: 8),
+            Text('Obtendo localização...', style: TextStyle(color: Colors.white70, fontSize: 13)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMyLocationButton() {
+    return GestureDetector(
+      onTap: () {
+        _mapController.move(_currentPosition, 16);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xE6242424),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [
+            BoxShadow(color: Colors.black38, blurRadius: 6, offset: Offset(0, 2)),
+          ],
+        ),
+        child: const Icon(Icons.my_location_rounded, color: Color(0xFFDEFF9A), size: 20),
       ),
     );
   }
@@ -601,13 +655,9 @@ class _MapScreenState extends State<MapScreen> {
   }
 }
 
-// ── Dark tile builder (aplica tint escuro sobre o mapa OSM) ──────────────────
+// ── Dark tile builder ──────────────────
 
-Widget _darkTileBuilder(
-  BuildContext context,
-  Widget tileWidget,
-  TileImage tile,
-) {
+Widget _darkTileBuilder(BuildContext context, Widget tileWidget, TileImage tile) {
   return ColorFiltered(
     colorFilter: const ColorFilter.matrix([
       -0.2126, -0.7152, -0.0722, 0, 255,
@@ -619,7 +669,7 @@ Widget _darkTileBuilder(
   );
 }
 
-// ── Legenda ───────────────────────────────────────────────────────────────────
+// ── Legend Item ──────────────────
 
 class _LegendItem extends StatelessWidget {
   final Color color;
@@ -638,16 +688,13 @@ class _LegendItem extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 11),
-        ),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
       ],
     );
   }
 }
 
-// ── Chip de filtro ────────────────────────────────────────────────────────────
+// ── Chip de filtro ──────────────────
 
 class _FilterChip extends StatelessWidget {
   final String label;
@@ -672,33 +719,20 @@ class _FilterChip extends StatelessWidget {
       onTap: () async {
         final result = await showMenu<String>(
           context: context,
-          position: RelativeRect.fromLTRB(
-            MediaQuery.of(context).size.width / 2,
-            130,
-            0,
-            0,
-          ),
+          position: const RelativeRect.fromLTRB(100, 200, 100, 0),
           color: const Color(0xFF2E2E2E),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           items: options
-              .map(
-                (o) => PopupMenuItem<String>(
-                  value: o,
-                  child: Text(
-                    o,
-                    style: TextStyle(
-                      color: selected == o
-                          ? const Color(0xFFDEFF9A)
-                          : Colors.white,
-                      fontWeight: selected == o
-                          ? FontWeight.bold
-                          : FontWeight.normal,
+              .map((o) => PopupMenuItem<String>(
+                    value: o,
+                    child: Text(
+                      o,
+                      style: TextStyle(
+                        color: selected == o ? const Color(0xFFDEFF9A) : Colors.white,
+                        fontWeight: selected == o ? FontWeight.bold : FontWeight.normal,
+                      ),
                     ),
-                  ),
-                ),
-              )
+                  ))
               .toList(),
         );
         if (result != null) onSelected(result);
@@ -706,40 +740,17 @@ class _FilterChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive
-              ? const Color(0xFFDEFF9A).withOpacity(0.15)
-              : const Color(0xE6242424),
+          color: isActive ? const Color(0xFFDEFF9A).withOpacity(0.15) : const Color(0xE6242424),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isActive
-                ? const Color(0xFFDEFF9A)
-                : Colors.white.withOpacity(0.15),
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black38,
-              blurRadius: 4,
-              offset: Offset(0, 1),
-            ),
-          ],
+          border: Border.all(color: isActive ? const Color(0xFFDEFF9A) : Colors.white.withOpacity(0.15)),
+          boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 1))],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: isActive ? const Color(0xFFDEFF9A) : Colors.white70,
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
+            Text(label, style: TextStyle(color: isActive ? const Color(0xFFDEFF9A) : Colors.white70, fontSize: 12, fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
             const SizedBox(width: 4),
-            Icon(
-              Icons.arrow_drop_down,
-              color: isActive ? const Color(0xFFDEFF9A) : Colors.white38,
-              size: 18,
-            ),
+            Icon(Icons.arrow_drop_down, color: isActive ? const Color(0xFFDEFF9A) : Colors.white38, size: 18),
           ],
         ),
       ),
