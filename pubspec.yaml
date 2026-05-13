@@ -1,0 +1,39 @@
+name: zeladoria_digital
+description: App de zeladoria urbana para o Hackathon IFSP Jacareí 2026.
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Mapa OpenStreetMap (gratuito)
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+
+  # Geolocalização
+  geolocator: ^11.0.0
+
+  # Firebase
+  firebase_core: ^2.32.0
+  cloud_firestore: ^4.17.5
+  firebase_auth: ^4.20.0
+  firebase_storage: ^11.7.7
+
+  # Upload de imagem
+  image_picker: ^1.1.2
+
+  # UI extras
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
