@@ -1,21 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/map_screen.dart';
 import 'services/auth_service.dart';
 
+// Configurações por plataforma — mesmo projeto Firebase, app IDs diferentes
+const FirebaseOptions _androidOptions = FirebaseOptions(
+  apiKey: "AIzaSyBU7pLC8v7FIQfqgt6iVBru1aNH5V0XmWQ",
+  authDomain: "hackathon-zeladoria.firebaseapp.com",
+  projectId: "hackathon-zeladoria",
+  storageBucket: "hackathon-zeladoria.firebasestorage.app",
+  messagingSenderId: "695164154657",
+  appId: "1:695164154657:android:e0035df9bcfd86e6304460",
+);
+
+// Para web/PC: adicione o app Web no Firebase Console e substitua o appId abaixo.
+// Firebase Console → Configurações do projeto → Adicionar app → Web
+// Enquanto isso, usa as mesmas credenciais (Firestore funciona; Auth pode falhar no PC).
+const FirebaseOptions _webOptions = FirebaseOptions(
+  apiKey: "AIzaSyBU7pLC8v7FIQfqgt6iVBru1aNH5V0XmWQ",
+  authDomain: "hackathon-zeladoria.firebaseapp.com",
+  projectId: "hackathon-zeladoria",
+  storageBucket: "hackathon-zeladoria.firebasestorage.app",
+  messagingSenderId: "695164154657",
+  appId: "1:695164154657:android:e0035df9bcfd86e6304460", // trocar pelo web appId
+);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(
-    options: const FirebaseOptions(
-      apiKey: "AIzaSyBU7pLC8v7FIQfqgt6iVBru1aNH5V0XmWQ",
-      authDomain: "hackathon-zeladoria.firebaseapp.com",
-      projectId: "hackathon-zeladoria",
-      storageBucket: "hackathon-zeladoria.firebasestorage.app",
-      messagingSenderId: "695164154657",
-      appId: "1:695164154657:android:e0035df9bcfd86e6304460",
-    ),
+    options: kIsWeb ? _webOptions : _androidOptions,
   );
 
   runApp(const ZeladoriaApp());
@@ -83,8 +99,16 @@ class _AppRootState extends State<AppRoot> {
   }
 
   Future<void> _init() async {
-    await _authService.signInAnonymously();
-    if (mounted) setState(() => _ready = true);
+    try {
+      await _authService.signInAnonymously().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {/* segue sem auth anônima */},
+      );
+    } catch (_) {
+      // Firebase Auth indisponível ou anônimo não ativado — abre o mapa assim mesmo
+    } finally {
+      if (mounted) setState(() => _ready = true);
+    }
   }
 
   @override
