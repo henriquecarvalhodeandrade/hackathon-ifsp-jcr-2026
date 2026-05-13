@@ -1,4 +1,4 @@
-modules = ["nodejs-20"]
+modules = ["web", "swift-5.8"]
 [agent]
 expertMode = true
 
