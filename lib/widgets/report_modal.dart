@@ -17,7 +17,6 @@ class ReportModal extends StatefulWidget {
 }
 
 class _ReportModalState extends State<ReportModal> {
-  // Categorias disponíveis
   static const List<String> _categorias = [
     'Buraco na Via',
     'Iluminação Pública',
@@ -29,16 +28,21 @@ class _ReportModalState extends State<ReportModal> {
   final TextEditingController _descricaoController = TextEditingController();
   bool _isLoading = false;
 
+  // [AJUSTE 1] Foto é totalmente opcional — null significa "sem foto".
+  // Adicione aqui a lógica de câmera quando quiser (ex: image_picker).
+  // String? _fotoPath;
+
   @override
   void dispose() {
     _descricaoController.dispose();
     super.dispose();
   }
 
-  // ── Submissão ─────────────────────────────────────────────────────────────
+  // ── [AJUSTE 1] Submissão — foto é opcional ─────────────────────────────────
 
   Future<void> _submitReport() async {
-    // Validação dos campos
+    // Valida somente os campos obrigatórios (categoria + descrição).
+    // A ausência de foto NÃO impede o envio.
     if (_categoriaSelecionada == null) {
       _showSnack('Selecione uma categoria para continuar.');
       return;
@@ -56,6 +60,7 @@ class _ReportModalState extends State<ReportModal> {
         descricao: _descricaoController.text.trim(),
         latitude: widget.currentPosition.latitude,
         longitude: widget.currentPosition.longitude,
+        // fotoUrl: _fotoPath,  // passe aqui quando implementar a câmera
       );
 
       if (mounted) {
@@ -69,9 +74,7 @@ class _ReportModalState extends State<ReportModal> {
         );
       }
     } catch (e) {
-      if (mounted) {
-        _showSnack('Erro ao salvar: $e');
-      }
+      if (mounted) _showSnack('Erro ao salvar: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -87,11 +90,13 @@ class _ReportModalState extends State<ReportModal> {
     );
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final lat = widget.currentPosition.latitude.toStringAsFixed(5);
+    final lng = widget.currentPosition.longitude.toStringAsFixed(5);
 
     return Container(
       decoration: const BoxDecoration(
@@ -127,9 +132,19 @@ class _ReportModalState extends State<ReportModal> {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            'Localização capturada automaticamente.',
-            style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12),
+
+          // [AJUSTE 2] Mostra as coordenadas da mira (centro do mapa)
+          Row(
+            children: [
+              const Icon(Icons.location_pin,
+                  color: Color(0xFFDEFF9A), size: 14),
+              const SizedBox(width: 4),
+              Text(
+                '$lat, $lng  •  posição da mira',
+                style: const TextStyle(
+                    color: Color(0xFF9E9E9E), fontSize: 12),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
 
@@ -151,7 +166,8 @@ class _ReportModalState extends State<ReportModal> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFFDEFF9A), width: 1.5),
+                borderSide:
+                    const BorderSide(color: Color(0xFFDEFF9A), width: 1.5),
               ),
             ),
             items: _categorias
@@ -172,7 +188,21 @@ class _ReportModalState extends State<ReportModal> {
               alignLabelWithHint: true,
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 12),
+
+          // [AJUSTE 1] Indicador visual de que a foto é opcional
+          Row(
+            children: [
+              const Icon(Icons.photo_camera_outlined,
+                  color: Color(0xFF616161), size: 16),
+              const SizedBox(width: 6),
+              const Text(
+                'Foto opcional — implemente image_picker para habilitar',
+                style: TextStyle(color: Color(0xFF616161), fontSize: 11),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
 
           // Botão confirmar
           SizedBox(
