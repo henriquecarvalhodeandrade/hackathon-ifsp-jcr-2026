@@ -34,13 +34,23 @@ class _ReportDetailSheetState extends State<ReportDetailSheet> {
       if (mounted) {
         setState(() => _statusAtual = novoStatus);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Status atualizado para "$novoStatus".'), backgroundColor: const Color(0xFF2E7D32), behavior: SnackBarBehavior.floating),
+          SnackBar(
+            content: Text('Status atualizado para "$novoStatus".', style: const TextStyle(color: Colors.white, fontSize: 14)),
+            backgroundColor: const Color(0xFF2E7D32),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao atualizar: $e'), backgroundColor: const Color(0xFF2E2E2E), behavior: SnackBarBehavior.floating),
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar: $e', style: const TextStyle(color: Colors.white, fontSize: 14)),
+            backgroundColor: const Color(0xFF323232),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         );
       }
     } finally {

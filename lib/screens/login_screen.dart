@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../main.dart';
 import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -79,6 +80,22 @@ class _LoginScreenState extends State<LoginScreen>
   Widget build(BuildContext context) {
     // Pegamos o bottom inset para não ficar atrás do teclado
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final isDark = ThemeController.of(context).isDark;
+
+    // Theme-adaptive colors
+    final accent = isDark ? const Color(0xFFDEFF9A) : const Color(0xFF4A7C1F);
+    final cardBg = isDark
+        ? const Color(0xFF1A1A1A).withOpacity(0.85)
+        : Colors.white.withOpacity(0.9);
+    final borderColor = isDark
+        ? Colors.white.withOpacity(0.1)
+        : Colors.black.withOpacity(0.08);
+    final titleColor = isDark ? Colors.white : const Color(0xFF212121);
+    final subtitleColor = isDark ? Colors.white.withOpacity(0.5) : const Color(0xFF757575);
+    final inputTextColor = isDark ? Colors.white : const Color(0xFF212121);
+    final closeIconColor = isDark ? Colors.white54 : const Color(0xFF9E9E9E);
+    final switchTextMuted = isDark ? Colors.white.withOpacity(0.5) : const Color(0xFF9E9E9E);
+    final accentOnBtn = isDark ? const Color(0xFF1A1A1A) : Colors.white;
 
     return Center(
       child: SingleChildScrollView(
@@ -90,10 +107,10 @@ class _LoginScreenState extends State<LoginScreen>
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
               child: Material(
-                color: const Color(0xFF1A1A1A).withOpacity(0.6),
+                color: cardBg,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(28),
-                  side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                  side: BorderSide(color: borderColor),
                 ),
                 child: FadeTransition(
                   opacity: _fadeAnim,
@@ -110,7 +127,7 @@ class _LoginScreenState extends State<LoginScreen>
                             alignment: Alignment.topRight,
                             child: IconButton(
                               onPressed: () => Navigator.of(context).pop(),
-                              icon: const Icon(Icons.close, color: Colors.white54),
+                              icon: Icon(Icons.close, color: closeIconColor),
                             ),
                           ),
 
@@ -120,19 +137,19 @@ class _LoginScreenState extends State<LoginScreen>
                               width: 64,
                               height: 64,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFDEFF9A),
+                                color: accent,
                                 borderRadius: BorderRadius.circular(18),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFDEFF9A).withOpacity(0.3),
+                                    color: accent.withOpacity(0.3),
                                     blurRadius: 15,
                                     offset: const Offset(0, 5),
                                   ),
                                 ],
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.location_city_rounded,
-                                color: Color(0xFF1A1A1A),
+                                color: accentOnBtn,
                                 size: 36,
                               ),
                             ),
@@ -143,8 +160,8 @@ class _LoginScreenState extends State<LoginScreen>
                           Text(
                             _isLogin ? 'Bem-vindo de volta' : 'Criar nova conta',
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: titleColor,
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
                             ),
@@ -156,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 : 'Junte-se ao JacaMap',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.5),
+                              color: subtitleColor,
                               fontSize: 14,
                             ),
                           ),
@@ -166,7 +183,7 @@ class _LoginScreenState extends State<LoginScreen>
                           TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: inputTextColor),
                             decoration: const InputDecoration(
                               labelText: 'E-mail',
                               prefixIcon: Icon(Icons.email_outlined, size: 20),
@@ -183,7 +200,7 @@ class _LoginScreenState extends State<LoginScreen>
                           TextFormField(
                             controller: _senhaController,
                             obscureText: !_senhaVisivel,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: inputTextColor),
                             decoration: InputDecoration(
                               labelText: 'Senha',
                               prefixIcon: const Icon(Icons.lock_outline, size: 20),
@@ -208,9 +225,9 @@ class _LoginScreenState extends State<LoginScreen>
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFB71C1C).withOpacity(0.15),
+                                color: const Color(0xFFB71C1C).withOpacity(0.12),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFEF5350).withOpacity(0.4)),
+                                border: Border.all(color: const Color(0xFFEF5350).withOpacity(0.5)),
                               ),
                               child: Row(
                                 children: [
@@ -219,7 +236,11 @@ class _LoginScreenState extends State<LoginScreen>
                                   Expanded(
                                     child: Text(
                                       _errorMessage!,
-                                      style: const TextStyle(color: Color(0xFFEF9A9A), fontSize: 13),
+                                      style: TextStyle(
+                                        color: isDark ? const Color(0xFFEF9A9A) : const Color(0xFFC62828),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -234,17 +255,17 @@ class _LoginScreenState extends State<LoginScreen>
                             child: ElevatedButton(
                               onPressed: _isLoading ? null : _submit,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFDEFF9A),
-                                foregroundColor: const Color(0xFF1A1A1A),
+                                backgroundColor: accent,
+                                foregroundColor: accentOnBtn,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                               ),
                               child: _isLoading
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       width: 24,
                                       height: 24,
-                                      child: CircularProgressIndicator(strokeWidth: 3, color: Color(0xFF1A1A1A)),
+                                      child: CircularProgressIndicator(strokeWidth: 3, color: accentOnBtn),
                                     )
                                   : Text(
                                       _isLogin ? 'ENTRAR' : 'CRIAR CONTA',
@@ -268,12 +289,12 @@ class _LoginScreenState extends State<LoginScreen>
                                   children: [
                                     TextSpan(
                                       text: _isLogin ? 'Novo por aqui? ' : 'Já tem conta? ',
-                                      style: TextStyle(color: Colors.white.withOpacity(0.5)),
+                                      style: TextStyle(color: switchTextMuted),
                                     ),
                                     TextSpan(
                                       text: _isLogin ? 'Cadastre-se' : 'Faça Login',
-                                      style: const TextStyle(
-                                        color: Color(0xFFDEFF9A),
+                                      style: TextStyle(
+                                        color: accent,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),

@@ -4,14 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import '../main.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/report_modal.dart';
 import '../widgets/report_detail_sheet.dart';
 import 'login_screen.dart';
-
-const _accent = Color(0xFFDEFF9A);
-const _surface = Color(0xE6242424);
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -153,7 +151,12 @@ class _MapScreenState extends State<MapScreen> {
   void _showSnack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: const Color(0xFF2E2E2E), behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Text(msg, style: const TextStyle(color: Colors.white, fontSize: 14)),
+        backgroundColor: const Color(0xFF323232),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     );
   }
 
@@ -167,21 +170,36 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     final denuncias = _denunciasFiltradas;
     final loggedIn = _authService.isLoggedIn;
+    final tc = ThemeController.of(context);
+    final isDark = tc.isDark;
+
+    // Theme-adaptive colors
+    final accent = isDark ? const Color(0xFFDEFF9A) : const Color(0xFF4A7C1F);
+    final surface = isDark ? const Color(0xE6242424) : const Color(0xE6FFFFFF);
+    final onSurface = isDark ? Colors.white : const Color(0xFF212121);
+    final onSurfaceMuted = isDark ? Colors.white70 : const Color(0xFF616161);
+    final chipBg = isDark ? const Color(0xE6242424) : const Color(0xE6FFFFFF);
+    final chipBorder = isDark ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.1);
+
+    final tileUrl = isDark
+        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+    final mapBg = isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE8E8E8);
 
     return Scaffold(
       body: Stack(children: [
-        // Mapa — usa tiles dark do CartoDB para evitar o ColorFilter pesado
+        // Mapa
         FlutterMap(
           mapController: _mapController,
           options: MapOptions(
             initialCenter: _defaultPosition,
             initialZoom: 14,
-            backgroundColor: const Color(0xFF1A1A1A),
+            backgroundColor: mapBg,
             onPositionChanged: (pos, _) { if (pos.center != null) _currentMapCenter = pos.center!; },
           ),
           children: [
             TileLayer(
-              urlTemplate: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+              urlTemplate: tileUrl,
               subdomains: const ['a', 'b', 'c', 'd'],
               userAgentPackageName: 'com.ifsp.zeladoria_digital',
               maxZoom: 19,
@@ -190,7 +208,7 @@ class _MapScreenState extends State<MapScreen> {
               if (_locationLoaded)
                 Marker(
                   point: _currentPosition, width: 24, height: 24,
-                  child: Container(decoration: BoxDecoration(color: _accent.withOpacity(0.5), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2))),
+                  child: Container(decoration: BoxDecoration(color: accent.withOpacity(0.5), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2))),
                 ),
               for (final d in denuncias)
                 Marker(
@@ -202,9 +220,9 @@ class _MapScreenState extends State<MapScreen> {
         ),
 
         // Mira central
-        const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.location_pin, color: _accent, size: 40),
-          SizedBox(height: 40),
+        Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.location_pin, color: accent, size: 40),
+          const SizedBox(height: 40),
         ])),
 
         // Header + Filtros (sem gap)
@@ -218,12 +236,14 @@ class _MapScreenState extends State<MapScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                   child: Row(children: [
-                    Expanded(child: _buildAppTitleBar(denuncias.length)),
+                    Expanded(child: _buildAppTitleBar(denuncias.length, accent, surface, onSurface)),
                     const SizedBox(width: 8),
-                    _buildAuthButton(loggedIn),
+                    _buildThemeToggle(isDark, tc, surface, accent),
+                    const SizedBox(width: 8),
+                    _buildAuthButton(loggedIn, accent, surface, onSurface),
                   ]),
                 ),
-                _buildFilterBar(),
+                _buildFilterBar(accent, chipBg, chipBorder, onSurface, onSurfaceMuted, isDark),
               ],
             ),
           ),
@@ -231,24 +251,24 @@ class _MapScreenState extends State<MapScreen> {
 
         // Loading GPS
         if (!_locationLoaded)
-          Positioned(top: 130, left: 0, right: 0, child: _buildLocationLoading()),
+          Positioned(top: 130, left: 0, right: 0, child: _buildLocationLoading(accent, surface, onSurfaceMuted)),
 
         // Legenda + minha localização
         Positioned(
           bottom: 110, left: 16,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _buildLegend(),
+            _buildLegend(isDark, onSurfaceMuted),
             const SizedBox(height: 8),
-            if (_locationLoaded) _buildMyLocationButton(),
+            if (_locationLoaded) _buildMyLocationButton(accent, surface),
           ]),
         ),
       ]),
 
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _abrirModalDenuncia,
-        icon: Icon(Icons.add, color: loggedIn ? const Color(0xFF1A1A1A) : Colors.black54),
-        label: Text('REPORTAR', style: TextStyle(color: loggedIn ? const Color(0xFF1A1A1A) : Colors.black54, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-        backgroundColor: loggedIn ? _accent : const Color(0xFF9EAF6A),
+        icon: Icon(Icons.add, color: isDark ? const Color(0xFF1A1A1A) : Colors.white),
+        label: Text('REPORTAR', style: TextStyle(color: isDark ? const Color(0xFF1A1A1A) : Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+        backgroundColor: accent,
         elevation: 4,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -257,26 +277,43 @@ class _MapScreenState extends State<MapScreen> {
 
   // ── Sub-widgets ───────────────────────────────────────────────────────────
 
-  Widget _buildAppTitleBar(int count) {
+  Widget _buildThemeToggle(bool isDark, ThemeController tc, Color surface, Color accent) {
+    return GestureDetector(
+      onTap: tc.toggleTheme,
+      child: Container(
+        width: 48, height: 48,
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2))],
+        ),
+        child: Icon(
+          isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+          color: accent,
+          size: 22,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppTitleBar(int count, Color accent, Color surface, Color onSurface) {
     return Container(
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(14), boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 2))]),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
       child: Row(children: [
-        const Icon(Icons.location_city_rounded, color: _accent, size: 22),
+        Icon(Icons.location_city_rounded, color: accent, size: 22),
         const SizedBox(width: 8),
-        const Expanded(child: Text('JacaMap', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15), overflow: TextOverflow.ellipsis)),
-        if (_todasDenuncias.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(color: const Color(0xFF2E2E2E), borderRadius: BorderRadius.circular(10)),
-            // child: Text('$count/${_todasDenuncias.length}', style: const TextStyle(color: _accent, fontSize: 11, fontWeight: FontWeight.bold)),
-          ),
+        Expanded(child: Text('JacaMap', style: TextStyle(color: onSurface, fontWeight: FontWeight.bold, fontSize: 15), overflow: TextOverflow.ellipsis)),
       ]),
     );
   }
 
-  Widget _buildAuthButton(bool loggedIn) {
+  Widget _buildAuthButton(bool loggedIn, Color accent, Color surface, Color onSurface) {
     if (!loggedIn) {
       // Botão de login estilizado
       return GestureDetector(
@@ -285,16 +322,16 @@ class _MapScreenState extends State<MapScreen> {
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: _accent,
+            color: accent,
             borderRadius: BorderRadius.circular(14),
-            boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 2))],
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2))],
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.login_rounded, color: Color(0xFF1A1A1A), size: 20),
-              SizedBox(width: 6),
-              Text('Entrar', style: TextStyle(color: Color(0xFF1A1A1A), fontWeight: FontWeight.bold, fontSize: 14)),
+              Icon(Icons.login_rounded, color: _contrastOn(accent), size: 20),
+              const SizedBox(width: 6),
+              Text('Entrar', style: TextStyle(color: _contrastOn(accent), fontWeight: FontWeight.bold, fontSize: 14)),
             ],
           ),
         ),
@@ -306,22 +343,31 @@ class _MapScreenState extends State<MapScreen> {
     final initial = email.isNotEmpty ? email[0].toUpperCase() : 'U';
 
     return GestureDetector(
-      onTap: () => _mostrarMenuUsuario(email),
+      onTap: () => _mostrarMenuUsuario(email, accent),
       child: Container(
         width: 48, height: 48,
         decoration: BoxDecoration(
-          color: _accent,
+          color: accent,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 2))],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2))],
         ),
         child: Center(
-          child: Text(initial, style: const TextStyle(color: Color(0xFF1A1A1A), fontWeight: FontWeight.bold, fontSize: 20)),
+          child: Text(initial, style: TextStyle(color: _contrastOn(accent), fontWeight: FontWeight.bold, fontSize: 20)),
         ),
       ),
     );
   }
 
-  void _mostrarMenuUsuario(String email) {
+  /// Returns white or dark text depending on accent luminance
+  Color _contrastOn(Color bg) =>
+      bg.computeLuminance() > 0.5 ? const Color(0xFF1A1A1A) : Colors.white;
+
+  void _mostrarMenuUsuario(String email, Color accent) {
+    final isDark = ThemeController.of(context).isDark;
+    final sheetBg = isDark ? const Color(0xFF242424) : Colors.white;
+    final textColor = isDark ? Colors.white70 : const Color(0xFF616161);
+    final btnBg = isDark ? const Color(0xFF3A3A3A) : const Color(0xFFFAFAFA);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -329,9 +375,10 @@ class _MapScreenState extends State<MapScreen> {
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         decoration: BoxDecoration(
-          color: const Color(0xFF242424),
+          color: sheetBg,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.08)),
+          border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.08)),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 16, offset: const Offset(0, 4))],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -340,18 +387,18 @@ class _MapScreenState extends State<MapScreen> {
             Container(
               width: 56, height: 56,
               decoration: BoxDecoration(
-                color: _accent,
+                color: accent,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Center(
                 child: Text(
                   email.isNotEmpty ? email[0].toUpperCase() : 'U',
-                  style: const TextStyle(color: Color(0xFF1A1A1A), fontWeight: FontWeight.bold, fontSize: 26),
+                  style: TextStyle(color: _contrastOn(accent), fontWeight: FontWeight.bold, fontSize: 26),
                 ),
               ),
             ),
             const SizedBox(height: 12),
-            Text(email, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+            Text(email, style: TextStyle(color: textColor, fontSize: 14)),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
@@ -366,7 +413,7 @@ class _MapScreenState extends State<MapScreen> {
                 icon: const Icon(Icons.logout_rounded, size: 20),
                 label: const Text('Sair da conta', style: TextStyle(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3A3A3A),
+                  backgroundColor: btnBg,
                   foregroundColor: const Color(0xFFEF5350),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
@@ -386,24 +433,24 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Widget _buildFilterBar() {
+  Widget _buildFilterBar(Color accent, Color chipBg, Color chipBorder, Color onSurface, Color onSurfaceMuted, bool isDark) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(children: [
-        _FilterChip(label: _filtroCategoria ?? 'Categoria', isActive: _filtroCategoria != null, options: FirestoreService.categorias, selected: _filtroCategoria, onSelected: (v) => setState(() => _filtroCategoria = v), onClear: () => setState(() => _filtroCategoria = null)),
+        _FilterChip(label: _filtroCategoria ?? 'Categoria', isActive: _filtroCategoria != null, options: FirestoreService.categorias, selected: _filtroCategoria, onSelected: (v) => setState(() => _filtroCategoria = v), onClear: () => setState(() => _filtroCategoria = null), accent: accent, chipBg: chipBg, chipBorder: chipBorder, onSurface: onSurface, onSurfaceMuted: onSurfaceMuted, isDark: isDark),
         const SizedBox(width: 8),
-        _FilterChip(label: _filtroGravidade ?? 'Gravidade', isActive: _filtroGravidade != null, options: FirestoreService.gravidades, selected: _filtroGravidade, onSelected: (v) => setState(() => _filtroGravidade = v), onClear: () => setState(() => _filtroGravidade = null)),
+        _FilterChip(label: _filtroGravidade ?? 'Gravidade', isActive: _filtroGravidade != null, options: FirestoreService.gravidades, selected: _filtroGravidade, onSelected: (v) => setState(() => _filtroGravidade = v), onClear: () => setState(() => _filtroGravidade = null), accent: accent, chipBg: chipBg, chipBorder: chipBorder, onSurface: onSurface, onSurfaceMuted: onSurfaceMuted, isDark: isDark),
         const SizedBox(width: 8),
-        _FilterChip(label: _filtroStatus ?? 'Status', isActive: _filtroStatus != null, options: FirestoreService.statusList, selected: _filtroStatus, onSelected: (v) => setState(() => _filtroStatus = v), onClear: () => setState(() => _filtroStatus = null)),
+        _FilterChip(label: _filtroStatus ?? 'Status', isActive: _filtroStatus != null, options: FirestoreService.statusList, selected: _filtroStatus, onSelected: (v) => setState(() => _filtroStatus = v), onClear: () => setState(() => _filtroStatus = null), accent: accent, chipBg: chipBg, chipBorder: chipBorder, onSurface: onSurface, onSurfaceMuted: onSurfaceMuted, isDark: isDark),
         if (_temFiltroAtivo) ...[
           const SizedBox(width: 8),
           GestureDetector(
             onTap: _limparFiltros,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(color: _accent.withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: _accent.withOpacity(0.5))),
-              child: const Row(children: [Icon(Icons.clear_all, color: _accent, size: 16), SizedBox(width: 4), Text('Limpar', style: TextStyle(color: _accent, fontSize: 12, fontWeight: FontWeight.bold))]),
+              decoration: BoxDecoration(color: accent.withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: accent.withOpacity(0.5))),
+              child: Row(children: [Icon(Icons.clear_all, color: accent, size: 16), const SizedBox(width: 4), Text('Limpar', style: TextStyle(color: accent, fontSize: 12, fontWeight: FontWeight.bold))]),
             ),
           ),
         ],
@@ -411,39 +458,40 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Widget _buildLocationLoading() {
+  Widget _buildLocationLoading(Color accent, Color surface, Color textColor) {
     return Center(child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(20)),
-      child: const Row(mainAxisSize: MainAxisSize.min, children: [
-        SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: _accent)),
-        SizedBox(width: 8),
-        Text('Obtendo localização...', style: TextStyle(color: Colors.white70, fontSize: 13)),
+      decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(20)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: accent)),
+        const SizedBox(width: 8),
+        Text('Obtendo localização...', style: TextStyle(color: textColor, fontSize: 13)),
       ]),
     ));
   }
 
-  Widget _buildMyLocationButton() {
+  Widget _buildMyLocationButton(Color accent, Color surface) {
     return GestureDetector(
       onTap: () => _mapController.move(_currentPosition, 16),
       child: Container(
         padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(12), boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 6, offset: Offset(0, 2))]),
-        child: const Icon(Icons.my_location_rounded, color: _accent, size: 20),
+        decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 6, offset: const Offset(0, 2))]),
+        child: Icon(Icons.my_location_rounded, color: accent, size: 20),
       ),
     );
   }
 
-  Widget _buildLegend() {
+  Widget _buildLegend(bool isDark, Color textColor) {
+    final bg = isDark ? const Color(0xCC1A1A1A) : const Color(0xCCFFFFFF);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(color: const Color(0xCC1A1A1A), borderRadius: BorderRadius.circular(12)),
-      child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _LegendItem(color: Color(0xFFF44336), label: 'Pendente'),
-        SizedBox(height: 4),
-        _LegendItem(color: Color(0xFFFFC107), label: 'Em andamento'),
-        SizedBox(height: 4),
-        _LegendItem(color: Color(0xFF4CAF50), label: 'Resolvido'),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _LegendItem(color: const Color(0xFFF44336), label: 'Pendente', textColor: textColor),
+        const SizedBox(height: 4),
+        _LegendItem(color: const Color(0xFFFFC107), label: 'Em andamento', textColor: textColor),
+        const SizedBox(height: 4),
+        _LegendItem(color: const Color(0xFF4CAF50), label: 'Resolvido', textColor: textColor),
       ]),
     );
   }
@@ -454,14 +502,15 @@ class _MapScreenState extends State<MapScreen> {
 class _LegendItem extends StatelessWidget {
   final Color color;
   final String label;
-  const _LegendItem({required this.color, required this.label});
+  final Color textColor;
+  const _LegendItem({required this.color, required this.label, required this.textColor});
 
   @override
   Widget build(BuildContext context) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
       const SizedBox(width: 6),
-      Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+      Text(label, style: TextStyle(color: textColor, fontSize: 11)),
     ]);
   }
 }
@@ -473,8 +522,19 @@ class _FilterChip extends StatefulWidget {
   final String? selected;
   final ValueChanged<String?> onSelected;
   final VoidCallback onClear;
+  final Color accent;
+  final Color chipBg;
+  final Color chipBorder;
+  final Color onSurface;
+  final Color onSurfaceMuted;
+  final bool isDark;
 
-  const _FilterChip({required this.label, required this.isActive, required this.options, required this.selected, required this.onSelected, required this.onClear});
+  const _FilterChip({
+    required this.label, required this.isActive, required this.options,
+    required this.selected, required this.onSelected, required this.onClear,
+    required this.accent, required this.chipBg, required this.chipBorder,
+    required this.onSurface, required this.onSurfaceMuted, required this.isDark,
+  });
 
   @override
   State<_FilterChip> createState() => _FilterChipState();
@@ -485,7 +545,6 @@ class _FilterChipState extends State<_FilterChip> {
 
   @override
   Widget build(BuildContext context) {
-    const accent = _accent;
     return GestureDetector(
       key: _chipKey,
       onTap: () async {
@@ -493,6 +552,8 @@ class _FilterChipState extends State<_FilterChip> {
         final RenderBox renderBox = _chipKey.currentContext!.findRenderObject() as RenderBox;
         final Offset offset = renderBox.localToGlobal(Offset.zero);
         final Size size = renderBox.size;
+
+        final menuBg = widget.isDark ? const Color(0xFF2E2E2E) : Colors.white;
 
         final result = await showMenu<String>(
           context: context,
@@ -502,24 +563,37 @@ class _FilterChipState extends State<_FilterChip> {
             offset.dx + size.width,
             0,
           ),
-          color: const Color(0xFF2E2E2E),
+          color: menuBg,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          items: widget.options.map((o) => PopupMenuItem<String>(value: o, child: Text(o, style: TextStyle(color: widget.selected == o ? accent : Colors.white, fontWeight: widget.selected == o ? FontWeight.bold : FontWeight.normal)))).toList(),
+          items: widget.options.map((o) => PopupMenuItem<String>(
+            value: o,
+            child: Text(o, style: TextStyle(
+              color: widget.selected == o ? widget.accent : widget.onSurface,
+              fontWeight: widget.selected == o ? FontWeight.bold : FontWeight.normal,
+            )),
+          )).toList(),
         );
         if (result != null) widget.onSelected(result);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: widget.isActive ? accent.withOpacity(0.15) : const Color(0xE6242424),
+          color: widget.isActive ? widget.accent.withOpacity(0.15) : widget.chipBg,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: widget.isActive ? accent : Colors.white.withOpacity(0.15)),
-          boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 1))],
+          border: Border.all(color: widget.isActive ? widget.accent : widget.chipBorder),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 4, offset: const Offset(0, 1))],
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(widget.label, style: TextStyle(color: widget.isActive ? accent : Colors.white70, fontSize: 12, fontWeight: widget.isActive ? FontWeight.bold : FontWeight.normal)),
+          Text(widget.label, style: TextStyle(
+            color: widget.isActive ? widget.accent : widget.onSurfaceMuted,
+            fontSize: 12,
+            fontWeight: widget.isActive ? FontWeight.bold : FontWeight.normal,
+          )),
           const SizedBox(width: 4),
-          Icon(Icons.arrow_drop_down, color: widget.isActive ? accent : Colors.white38, size: 18),
+          Icon(Icons.arrow_drop_down,
+            color: widget.isActive ? widget.accent : widget.onSurfaceMuted.withOpacity(0.5),
+            size: 18,
+          ),
         ]),
       ),
     );

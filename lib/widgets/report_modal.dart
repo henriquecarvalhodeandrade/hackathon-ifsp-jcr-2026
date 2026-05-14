@@ -52,10 +52,11 @@ class _ReportModalState extends State<ReportModal> {
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Denúncia registrada com sucesso!'),
-            backgroundColor: Color(0xFF2E7D32),
+          SnackBar(
+            content: const Text('Denúncia registrada com sucesso!', style: TextStyle(color: Colors.white, fontSize: 14)),
+            backgroundColor: const Color(0xFF2E7D32),
             behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -68,7 +69,12 @@ class _ReportModalState extends State<ReportModal> {
 
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: const Color(0xFF2E2E2E), behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Text(msg, style: const TextStyle(color: Colors.white, fontSize: 14)),
+        backgroundColor: const Color(0xFF323232),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     );
   }
 
