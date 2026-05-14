@@ -19,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen>
   bool _isLogin = true;
   bool _isLoading = false;
   bool _senhaVisivel = false;
+  String? _errorMessage;
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -47,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
+    setState(() { _isLoading = true; _errorMessage = null; });
     try {
       if (_isLogin) {
         await _auth.signIn(_emailController.text.trim(), _senhaController.text);
@@ -67,13 +68,7 @@ class _LoginScreenState extends State<LoginScreen>
         } else {
           msg = 'Erro ao autenticar. Tente novamente.';
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-            backgroundColor: const Color(0xFFB71C1C),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        setState(() => _errorMessage = msg);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -206,7 +201,32 @@ class _LoginScreenState extends State<LoginScreen>
                               return null;
                             },
                           ),
-                          const SizedBox(height: 32),
+                          const SizedBox(height: 24),
+
+                          // Mensagem de erro inline
+                          if (_errorMessage != null) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFB71C1C).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFEF5350).withOpacity(0.4)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.error_outline, color: Color(0xFFEF5350), size: 20),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      _errorMessage!,
+                                      style: const TextStyle(color: Color(0xFFEF9A9A), fontSize: 13),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
 
                           // Botão entrar
                           SizedBox(
@@ -238,6 +258,7 @@ class _LoginScreenState extends State<LoginScreen>
                           GestureDetector(
                             onTap: () => setState(() {
                               _isLogin = !_isLogin;
+                              _errorMessage = null;
                               _formKey.currentState?.reset();
                             }),
                             child: Center(

@@ -118,7 +118,6 @@ class _MapScreenState extends State<MapScreen> {
 
   void _abrirModalDenuncia() {
     if (!_authService.isLoggedIn) {
-      _showSnack('Faça login para registrar uma denúncia.');
       _irParaLogin();
       return;
     }
@@ -278,12 +277,103 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _buildAuthButton(bool loggedIn) {
+    if (!loggedIn) {
+      // Botão de login estilizado
+      return GestureDetector(
+        onTap: _irParaLogin,
+        child: Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: _accent,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 2))],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.login_rounded, color: Color(0xFF1A1A1A), size: 20),
+              SizedBox(width: 6),
+              Text('Entrar', style: TextStyle(color: Color(0xFF1A1A1A), fontWeight: FontWeight.bold, fontSize: 14)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Avatar do usuário logado
+    final email = _authService.currentUser?.email ?? '';
+    final initial = email.isNotEmpty ? email[0].toUpperCase() : 'U';
+
     return GestureDetector(
-      onTap: loggedIn ? () async { await _authService.signOut(); setState(() {}); _showSnack('Sessão encerrada.'); } : _irParaLogin,
+      onTap: () => _mostrarMenuUsuario(email),
       child: Container(
         width: 48, height: 48,
-        decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(14), boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 2))]),
-        child: Icon(loggedIn ? Icons.logout_rounded : Icons.login_rounded, color: loggedIn ? _accent : Colors.white54, size: 22),
+        decoration: BoxDecoration(
+          color: _accent,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 2))],
+        ),
+        child: Center(
+          child: Text(initial, style: const TextStyle(color: Color(0xFF1A1A1A), fontWeight: FontWeight.bold, fontSize: 20)),
+        ),
+      ),
+    );
+  }
+
+  void _mostrarMenuUsuario(String email) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        decoration: BoxDecoration(
+          color: const Color(0xFF242424),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withOpacity(0.08)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Avatar grande
+            Container(
+              width: 56, height: 56,
+              decoration: BoxDecoration(
+                color: _accent,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Center(
+                child: Text(
+                  email.isNotEmpty ? email[0].toUpperCase() : 'U',
+                  style: const TextStyle(color: Color(0xFF1A1A1A), fontWeight: FontWeight.bold, fontSize: 26),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(email, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await _authService.signOut();
+                  setState(() {});
+                  _showSnack('Sessão encerrada.');
+                },
+                icon: const Icon(Icons.logout_rounded, size: 20),
+                label: const Text('Sair da conta', style: TextStyle(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3A3A3A),
+                  foregroundColor: const Color(0xFFEF5350),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
