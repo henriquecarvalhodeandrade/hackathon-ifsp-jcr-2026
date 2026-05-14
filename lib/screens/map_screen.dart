@@ -208,28 +208,31 @@ class _MapScreenState extends State<MapScreen> {
           SizedBox(height: 40),
         ])),
 
-        // Header
+        // Header + Filtros (sem gap)
         Positioned(
           top: 0, left: 0, right: 0,
-          child: SafeArea(child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: Row(children: [
-              Expanded(child: _buildAppTitleBar(denuncias.length)),
-              const SizedBox(width: 8),
-              _buildAuthButton(loggedIn),
-            ]),
-          )),
-        ),
-
-        // Filtros
-        Positioned(
-          top: 100, left: 0, right: 0,
-          child: SafeArea(child: _buildFilterBar()),
+          child: SafeArea(
+            bottom: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: Row(children: [
+                    Expanded(child: _buildAppTitleBar(denuncias.length)),
+                    const SizedBox(width: 8),
+                    _buildAuthButton(loggedIn),
+                  ]),
+                ),
+                _buildFilterBar(),
+              ],
+            ),
+          ),
         ),
 
         // Loading GPS
         if (!_locationLoaded)
-          Positioned(top: 160, left: 0, right: 0, child: _buildLocationLoading()),
+          Positioned(top: 130, left: 0, right: 0, child: _buildLocationLoading()),
 
         // Legenda + minha localização
         Positioned(
@@ -373,7 +376,7 @@ class _LegendItem extends StatelessWidget {
   }
 }
 
-class _FilterChip extends StatelessWidget {
+class _FilterChip extends StatefulWidget {
   final String label;
   final bool isActive;
   final List<String> options;
@@ -384,31 +387,49 @@ class _FilterChip extends StatelessWidget {
   const _FilterChip({required this.label, required this.isActive, required this.options, required this.selected, required this.onSelected, required this.onClear});
 
   @override
+  State<_FilterChip> createState() => _FilterChipState();
+}
+
+class _FilterChipState extends State<_FilterChip> {
+  final GlobalKey _chipKey = GlobalKey();
+
+  @override
   Widget build(BuildContext context) {
     const accent = _accent;
     return GestureDetector(
+      key: _chipKey,
       onTap: () async {
+        // Calculate position directly below the chip
+        final RenderBox renderBox = _chipKey.currentContext!.findRenderObject() as RenderBox;
+        final Offset offset = renderBox.localToGlobal(Offset.zero);
+        final Size size = renderBox.size;
+
         final result = await showMenu<String>(
           context: context,
-          position: const RelativeRect.fromLTRB(100, 200, 100, 0),
+          position: RelativeRect.fromLTRB(
+            offset.dx,
+            offset.dy + size.height + 4,
+            offset.dx + size.width,
+            0,
+          ),
           color: const Color(0xFF2E2E2E),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          items: options.map((o) => PopupMenuItem<String>(value: o, child: Text(o, style: TextStyle(color: selected == o ? accent : Colors.white, fontWeight: selected == o ? FontWeight.bold : FontWeight.normal)))).toList(),
+          items: widget.options.map((o) => PopupMenuItem<String>(value: o, child: Text(o, style: TextStyle(color: widget.selected == o ? accent : Colors.white, fontWeight: widget.selected == o ? FontWeight.bold : FontWeight.normal)))).toList(),
         );
-        if (result != null) onSelected(result);
+        if (result != null) widget.onSelected(result);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? accent.withOpacity(0.15) : const Color(0xE6242424),
+          color: widget.isActive ? accent.withOpacity(0.15) : const Color(0xE6242424),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isActive ? accent : Colors.white.withOpacity(0.15)),
+          border: Border.all(color: widget.isActive ? accent : Colors.white.withOpacity(0.15)),
           boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 1))],
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(label, style: TextStyle(color: isActive ? accent : Colors.white70, fontSize: 12, fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
+          Text(widget.label, style: TextStyle(color: widget.isActive ? accent : Colors.white70, fontSize: 12, fontWeight: widget.isActive ? FontWeight.bold : FontWeight.normal)),
           const SizedBox(width: 4),
-          Icon(Icons.arrow_drop_down, color: isActive ? accent : Colors.white38, size: 18),
+          Icon(Icons.arrow_drop_down, color: widget.isActive ? accent : Colors.white38, size: 18),
         ]),
       ),
     );
