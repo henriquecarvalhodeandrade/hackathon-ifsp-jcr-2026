@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/firestore_service.dart';
+import '../services/geocoding_service.dart';
 
 class ReportModal extends StatefulWidget {
   final LatLng currentPosition;
@@ -23,6 +24,29 @@ class _ReportModalState extends State<ReportModal> {
   String _gravidadeSelecionada = 'Média';
   final _descricaoController = TextEditingController();
   bool _isLoading = false;
+
+  // Endereço resolvido automaticamente
+  String? _enderecoResolvido;
+  bool _resolvendoEndereco = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolverEndereco();
+  }
+
+  Future<void> _resolverEndereco() async {
+    final endereco = await GeocodingService.reverseGeocode(
+      widget.currentPosition.latitude,
+      widget.currentPosition.longitude,
+    );
+    if (mounted) {
+      setState(() {
+        _enderecoResolvido = endereco;
+        _resolvendoEndereco = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -48,6 +72,7 @@ class _ReportModalState extends State<ReportModal> {
         longitude: widget.currentPosition.longitude,
         gravidade: _gravidadeSelecionada,
         userId: widget.userId,
+        endereco: _enderecoResolvido,
       );
       if (mounted) {
         Navigator.of(context).pop();
@@ -101,7 +126,10 @@ class _ReportModalState extends State<ReportModal> {
             const SizedBox(height: 20),
             const Text('Nova Denúncia', style: TextStyle(color: Color(0xFFDEFF9A), fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
             const SizedBox(height: 4),
-            Text('Localização capturada automaticamente.', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
+
+            // Endereço resolvido
+            _buildEnderecoInfo(),
+
             const SizedBox(height: 20),
             DropdownButtonFormField<String>(
               value: _categoriaSelecionada,
@@ -171,6 +199,43 @@ class _ReportModalState extends State<ReportModal> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEnderecoInfo() {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2E2E2E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.location_on_outlined, color: Color(0xFFDEFF9A), size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _resolvendoEndereco
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF9E9E9E))),
+                      const SizedBox(width: 8),
+                      Text('Buscando endereço...', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12)),
+                    ],
+                  )
+                : Text(
+                    _enderecoResolvido ?? 'Endereço não encontrado',
+                    style: TextStyle(
+                      color: _enderecoResolvido != null ? Colors.white.withOpacity(0.7) : Colors.white.withOpacity(0.35),
+                      fontSize: 12,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+          ),
+        ],
       ),
     );
   }

@@ -11,6 +11,7 @@ class Denuncia {
   final String gravidade;
   final String? userId;
   final DateTime? timestamp;
+  final String? endereco;
 
   const Denuncia({
     required this.id,
@@ -22,6 +23,7 @@ class Denuncia {
     required this.gravidade,
     this.userId,
     this.timestamp,
+    this.endereco,
   });
 
   factory Denuncia.fromFirestore(DocumentSnapshot doc) {
@@ -36,6 +38,7 @@ class Denuncia {
       gravidade: data['gravidade'] as String? ?? 'Média',
       userId: data['userId'] as String?,
       timestamp: (data['timestamp'] as Timestamp?)?.toDate(),
+      endereco: data['endereco'] as String?,
     );
   }
 }
@@ -71,6 +74,7 @@ class FirestoreService {
     required double longitude,
     required String gravidade,
     String? userId,
+    String? endereco,
   }) async {
     final docRef = await _db.collection(_collection).add({
       'categoria': categoria,
@@ -80,6 +84,7 @@ class FirestoreService {
       'status': 'Pendente',
       'gravidade': gravidade,
       'userId': userId,
+      'endereco': endereco,
       'timestamp': FieldValue.serverTimestamp(),
     });
     return docRef.id;

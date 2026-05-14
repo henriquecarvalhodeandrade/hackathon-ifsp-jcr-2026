@@ -124,11 +124,45 @@ class _ReportDetailSheetState extends State<ReportDetailSheet> {
               child: Text(d.descricao.isNotEmpty ? d.descricao : 'Sem descrição.', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 14, height: 1.5)),
             ),
             const SizedBox(height: 16),
-            Row(children: [
-              const Icon(Icons.location_on_outlined, color: Color(0xFF9E9E9E), size: 14),
-              const SizedBox(width: 4),
-              Text('${d.latitude.toStringAsFixed(5)}, ${d.longitude.toStringAsFixed(5)}', style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 12)),
-            ]),
+            // Endereço
+            if (d.endereco != null && d.endereco!.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E2E2E),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.location_on, color: Color(0xFFDEFF9A), size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            d.endereco!,
+                            style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13, height: 1.4),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${d.latitude.toStringAsFixed(5)}, ${d.longitude.toStringAsFixed(5)}',
+                            style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              Row(children: [
+                const Icon(Icons.location_on_outlined, color: Color(0xFF9E9E9E), size: 14),
+                const SizedBox(width: 4),
+                Text('${d.latitude.toStringAsFixed(5)}, ${d.longitude.toStringAsFixed(5)}', style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 12)),
+              ]),
+            ],
             const SizedBox(height: 24),
             if (widget.isLoggedIn)
               SizedBox(

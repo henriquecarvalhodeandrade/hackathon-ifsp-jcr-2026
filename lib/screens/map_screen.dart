@@ -36,6 +36,9 @@ class _MapScreenState extends State<MapScreen> {
   String? _filtroGravidade;
   String? _filtroStatus;
 
+  // Throttle para onPositionChanged
+  Timer? _positionThrottle;
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +49,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     _denunciasSub?.cancel();
+    _positionThrottle?.cancel();
     super.dispose();
   }
 
@@ -188,32 +192,53 @@ class _MapScreenState extends State<MapScreen> {
 
     return Scaffold(
       body: Stack(children: [
-        // Mapa
+        // Mapa — otimizado para performance móvel
         FlutterMap(
           mapController: _mapController,
           options: MapOptions(
             initialCenter: _defaultPosition,
-            initialZoom: 14,
+            initialZoom: 13,
+            minZoom: 10,
+            maxZoom: 17,
             backgroundColor: mapBg,
-            onPositionChanged: (pos, _) { if (pos.center != null) _currentMapCenter = pos.center!; },
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+            ),
+            onPositionChanged: (pos, _) {
+              // Throttle: atualiza o center no máximo a cada 150ms
+              if (pos.center != null) {
+                _positionThrottle?.cancel();
+                _positionThrottle = Timer(const Duration(milliseconds: 150), () {
+                  _currentMapCenter = pos.center!;
+                });
+              }
+            },
           ),
           children: [
             TileLayer(
               urlTemplate: tileUrl,
               subdomains: const ['a', 'b', 'c', 'd'],
               userAgentPackageName: 'com.ifsp.zeladoria_digital',
-              maxZoom: 19,
+              maxZoom: 17,
+              keepBuffer: 3,
+              tileSize: 256,
+              // Usar nativeZoom para evitar upscaling pesado
+              maxNativeZoom: 17,
             ),
             MarkerLayer(markers: [
               if (_locationLoaded)
                 Marker(
                   point: _currentPosition, width: 24, height: 24,
-                  child: Container(decoration: BoxDecoration(color: accent.withOpacity(0.5), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2))),
+                  child: RepaintBoundary(
+                    child: Container(decoration: BoxDecoration(color: accent.withOpacity(0.5), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2))),
+                  ),
                 ),
               for (final d in denuncias)
                 Marker(
                   point: LatLng(d.latitude, d.longitude), width: 40, height: 40,
-                  child: GestureDetector(onTap: () => _abrirDetalhe(d), child: _buildMarker(d)),
+                  child: RepaintBoundary(
+                    child: GestureDetector(onTap: () => _abrirDetalhe(d), child: _buildMarker(d)),
+                  ),
                 ),
             ]),
           ],
